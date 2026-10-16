@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { ChannelRecord, ImportKind, MonthlyRecord, Provenance, SocialPost, SocialRecord } from '../types';
-import { coercePeriod } from './periods';
+import { coercePeriod, labelLong } from './periods';
 import { normalizeChannel } from './metrics';
 
 /* ------------------------------------------------------------------ */
@@ -277,10 +277,34 @@ export function buildRecords(
     const excelRow = r + 1;
     if (row.every((c) => c === null || c === '')) continue;
     const first = toText(get(row, kind === 'channels' ? 'canal' : kind === 'posts' ? 'titulo' : 'period'));
+    const endOfTable = (why: string) => {
+      const rest = a.sheet.rows.slice(r).filter((x) => x && x.some((c) => c !== null && c !== '')).length;
+      issues.push({ row: excelRow, level: 'info', msg: `${why} Las ${rest} filas restantes de la hoja (notas, resúmenes o tablas derivadas) no se importan.` });
+    };
     if (TOTAL_ROW.test(first) || TOTAL_ROW.test(toText(row[0]))) {
       skippedRows++;
-      issues.push({ row: excelRow, level: 'info', msg: `Fila de totales omitida (“${first || toText(row[0])}”). Los totales se recalculan.` });
+      if (records.length) {
+        endOfTable(`Fila de totales (“${(first || toText(row[0])).trim()}”): fin de la tabla. Los totales se recalculan en la plataforma.`);
+        break;
+      }
       continue;
+    }
+    // Una fila que repite los encabezados indica que empieza otra tabla
+    const repeatsHeader = Object.values(a.mapping).some((idx) => idx >= 0 && toText(row[idx]) && normHeader(row[idx]) === normHeader(a.headers[idx]));
+    if (repeatsHeader && records.length) {
+      endOfTable('Comienza otra tabla con los mismos encabezados.');
+      break;
+    }
+    if (kind !== 'posts') {
+      const anyNumber = specs.some((sp) => (sp.kind === 'number' || sp.kind === 'money') && toNumber(get(row, sp.key)) !== undefined);
+      if (!anyNumber) {
+        if (records.length) {
+          endOfTable('Fila sin valores numéricos: fin de la tabla.');
+          break;
+        }
+        skippedRows++;
+        continue;
+      }
     }
     const source: Provenance = { kind: 'import', file: opts.file, sheet: a.sheet.name, row: excelRow, at };
     const nums: Record<string, number | undefined> = {};
@@ -299,6 +323,10 @@ export function buildRecords(
     if (kind === 'monthly' || kind === 'social') {
       if (!period) {
         skippedRows++;
+        if (records.length && typeof rawPeriod === 'string' && rawPeriod.trim().length > 12) {
+          endOfTable(`“${rawPeriod.trim().slice(0, 40)}” no es un mes: fin de la tabla.`);
+          break;
+        }
         issues.push({ row: excelRow, level: 'warn', msg: `Mes no reconocido (“${toText(rawPeriod)}”). Fila omitida.` });
         continue;
       }
@@ -364,6 +392,14 @@ export function buildRecords(
   for (const rec of records) ids.set(rec.id, (ids.get(rec.id) ?? 0) + 1);
   for (const [id, n] of ids) if (n > 1) issues.push({ level: 'warn', msg: `Registro repetido ${n} veces en el archivo (${id.split(':').slice(1).join(' · ')}). Solo se importará el primero.` });
 
+  for (const sp of specs) {
+    const idx = a.mapping[sp.key] ?? -1;
+    if (idx < 0) continue;
+    const h = normHeader(a.headers[idx]);
+    if (sp.key === 'clics' && h.includes('clic') && h.includes('consulta')) {
+      issues.push({ level: 'warn', msg: `La columna “${a.headers[idx]}” combina clics y consultas. Se guarda como Clics; la etapa Consultas del embudo queda sin datos hasta que se registren por separado.` });
+    }
+  }
   if (kind === 'monthly') issues.push(...validateMonthly(records as MonthlyRecord[]));
   if (!records.length) issues.push({ level: 'error', msg: 'No se encontraron filas válidas para importar.' });
   return { kind, records, issues, skippedRows };
@@ -390,6 +426,40 @@ export function validateMonthly(recs: MonthlyRecord[]): Issue[] {
       out.push({ row: r.source.row, level: 'warn', msg: `${r.period}: hay más ventas (${r.ventas}) que visitas web (${r.visitas}). Probablemente incluyen ventas en tienda; la conversión web se verá inflada.` });
     }
   }
+  // Valores idénticos en meses consecutivos: posible dato de relleno
+  for (const k of ['ingresos', 'ventas', 'visitas', 'clientesNuevos'] as const) {
+    const vals = recs.map((r) => r[k]);
+    let run = 1;
+    let maxRun = 1;
+    let at = 0;
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i] !== undefined && vals[i] === vals[i - 1]) {
+        run++;
+        if (run > maxRun) {
+          maxRun = run;
+          at = i;
+        }
+      } else run = 1;
+    }
+    if (maxRun >= 3) {
+      out.push({ level: 'warn', msg: `${k === 'clientesNuevos' ? 'Clientes nuevos' : k.charAt(0).toUpperCase() + k.slice(1)}: el mismo valor (${vals[at]?.toLocaleString('es-GT')}) se repite ${maxRun} meses seguidos. Confirma que no sea un dato de relleno.` });
+    }
+  }
+  // Ventas e ingresos en direcciones opuestas
+  const withBoth = recs.filter((r) => r.ventas && r.ingresos !== undefined);
+  if (withBoth.length >= 3) {
+    const f = withBoth[0];
+    const l = withBoth[withBoth.length - 1];
+    const dv = l.ventas! / f.ventas! - 1;
+    const di = l.ingresos! / f.ingresos! - 1;
+    if (dv > 0.1 && di < -0.1) {
+      out.push({ level: 'warn', msg: `Las ventas suben ${(dv * 100).toFixed(0)} % y los ingresos bajan ${(Math.abs(di) * 100).toFixed(0)} % entre ${labelLong(f.period)} y ${labelLong(l.period)}; el ticket promedio pasa de Q ${(f.ingresos! / f.ventas!).toFixed(2)} a Q ${(l.ingresos! / l.ventas!).toFixed(2)}. Verifica las cifras de ingresos.` });
+    }
+  }
+  const conv = recs.filter((r) => r.ventas !== undefined && r.visitas);
+  if (conv.length && conv.every((r) => r.ventas! / r.visitas! > 0.15)) {
+    out.push({ level: 'info', msg: `La conversión ventas ÷ visitas web supera 15 % en todos los meses (hasta ${(Math.max(...conv.map((r) => r.ventas! / r.visitas!)) * 100).toFixed(1)} %). Es alta para tráfico web: probablemente las ventas incluyen clientes de mostrador que no visitaron el sitio.` });
+  }
   if (convDef && convDef !== 'visitas') {
     out.push({ level: 'info', msg: `La conversión del archivo parece calcularse como ventas ÷ ${convDef}. La plataforma usa ventas ÷ visitas como “Conversión” y muestra ventas ÷ consultas como “Cierre de consultas”.` });
   }
@@ -413,6 +483,16 @@ export function crossCheck(monthly: MonthlyRecord[], channels: ChannelRecord[]):
         level: 'warn',
         msg: `${k.charAt(0).toUpperCase() + k.slice(1)}: la suma por canales (${Math.round(b).toLocaleString('es-GT')}) difiere ${(diff * 100).toFixed(1)} % de la suma mensual (${Math.round(a).toLocaleString('es-GT')}). Se muestran por separado y no se consolidan.`,
       });
+    }
+  }
+  const tm = monthly.reduce((s, r) => s + (r.ingresos ?? 0), 0) / Math.max(1, monthly.reduce((s, r) => s + (r.ventas ?? 0), 0));
+  const tc = totals.reduce((s, r) => s + (r.ingresos ?? 0), 0) / Math.max(1, totals.reduce((s, r) => s + (r.ventas ?? 0), 0));
+  if (tm > 0 && tc > 0 && Math.abs(tc / tm - 1) > 0.25) {
+    out.push({ level: 'warn', msg: `El ticket promedio por canales (Q ${tc.toFixed(2)}) y el de los datos mensuales (Q ${tm.toFixed(2)}) son muy distintos: las dos hojas no parecen describir las mismas ventas.` });
+  }
+  for (const c of totals) {
+    if (c.clics !== undefined && c.visitas !== undefined && c.clics > c.visitas) {
+      out.push({ level: 'info', msg: `${c.canal}: registra más clics/consultas (${c.clics.toLocaleString('es-GT')}) que visitas (${c.visitas.toLocaleString('es-GT')}).` });
     }
   }
   return out;

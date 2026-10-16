@@ -92,20 +92,36 @@ export function Overview() {
           color={c.series[1]}
           onOpen={() => setPage('traffic')}
         />
-        <KpiCard
-          label="Consultas"
-          icon={<MessageSquare size={14} />}
-          help={`${METRICS.consultas.help} Debajo se muestran los clics del mismo período.`}
-          unit="n"
-          value={k.consultas.value}
-          delta={k.consultas.delta}
-          secondary={k.clics.value !== undefined ? `${fmt(k.clics.value)} clics en el período` : undefined}
-          compareLabel={prevLabel}
-          coverage={k.consultas.coverage}
-          spark={k.consultas.spark}
-          color={c.series[1]}
-          onOpen={() => setPage('traffic')}
-        />
+        {k.consultas.value === undefined && k.clics.value !== undefined ? (
+          <KpiCard
+            label="Clics / consultas"
+            icon={<MessageSquare size={14} />}
+            help="El archivo registra clics y consultas en una sola columna, así que se muestran juntos."
+            unit="n"
+            value={k.clics.value}
+            delta={k.clics.delta}
+            compareLabel={prevLabel}
+            coverage={k.clics.coverage}
+            spark={k.clics.spark}
+            color={c.series[1]}
+            onOpen={() => setPage('traffic')}
+          />
+        ) : (
+          <KpiCard
+            label="Consultas"
+            icon={<MessageSquare size={14} />}
+            help={`${METRICS.consultas.help} Debajo se muestran los clics del mismo período.`}
+            unit="n"
+            value={k.consultas.value}
+            delta={k.consultas.delta}
+            secondary={k.clics.value !== undefined ? `${fmt(k.clics.value)} clics en el período` : undefined}
+            compareLabel={prevLabel}
+            coverage={k.consultas.coverage}
+            spark={k.consultas.spark}
+            color={c.series[1]}
+            onOpen={() => setPage('traffic')}
+          />
+        )}
         <KpiCard
           label="Conversión"
           icon={<BadgePercent size={14} />}
@@ -222,7 +238,7 @@ export function Overview() {
             <Funnel
               stages={[
                 { label: 'Visitas web', value: tot('visitas') },
-                { label: 'Consultas', value: tot('consultas') },
+                tot('consultas') !== undefined ? { label: 'Consultas', value: tot('consultas') } : { label: 'Clics / consultas', value: tot('clics') },
                 { label: 'Oportunidades', value: undefined, note: 'Sin registro de oportunidades' },
                 { label: 'Ventas', value: tot('ventas') },
               ]}

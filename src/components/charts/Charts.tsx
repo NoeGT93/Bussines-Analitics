@@ -339,8 +339,15 @@ export function Funnel({ stages }: { stages: { label: string; value?: number; no
   const reduce = useReducedMotion();
   const valid = stages.filter((s) => s.value !== undefined) as { label: string; value: number; note?: string }[];
   const max = Math.max(...valid.map((s) => s.value), 1);
+  const broken = valid.find((s, i) => i > 0 && s.value > valid[i - 1].value);
+  const brokenPrev = broken ? valid[valid.indexOf(broken) - 1] : undefined;
   return (
     <div className="space-y-2.5">
+      {broken && brokenPrev && (
+        <p className="rounded-lg bg-warn/10 px-3 py-2 text-[12px] leading-snug text-warn">
+          {broken.label} ({fmt(broken.value)}) supera a {brokenPrev.label.toLowerCase()} ({fmt(brokenPrev.value)}): las etapas no son compatibles como embudo. Probablemente las ventas incluyen clientes que no pasaron por esa etapa.
+        </p>
+      )}
       {stages.map((s, i) => {
         const prev = stages.slice(0, i).reverse().find((x) => x.value !== undefined)?.value;
         const rate = s.value !== undefined && prev ? s.value / prev : undefined;
@@ -351,7 +358,7 @@ export function Funnel({ stages }: { stages: { label: string; value?: number; no
               <span className="text-muted">{s.label}</span>
               <span className="tnum font-medium text-ink">
                 {fmt(s.value)}
-                {rate !== undefined && <span className="ml-2 text-[11.5px] font-normal text-faint">{fmt(rate, '%')} de la etapa previa con datos</span>}
+                {rate !== undefined && rate <= 1 && <span className="ml-2 text-[11.5px] font-normal text-faint">{fmt(rate, '%')} de la etapa previa con datos</span>}
               </span>
             </div>
             <div className="h-7 overflow-hidden rounded-md bg-sunken">

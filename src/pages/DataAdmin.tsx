@@ -245,7 +245,7 @@ function ImportPanel() {
             )}
             {targetHasData && file && (
               <p className="mt-3 flex items-start gap-2 rounded-lg bg-warn/10 px-3 py-2 text-[12.5px] text-warn">
-                <AlertTriangle size={15} className="mt-0.5 shrink-0" /> Esta empresa tiene datos de ejemplo. Los meses que importes los reemplazarán; elimina el resto en Almacenamiento.
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" /> Esta empresa tiene las cifras demostrativas del archivo base. Los meses que importes las reemplazarán.
               </p>
             )}
           </div>
@@ -586,7 +586,7 @@ function RecordsPanel() {
                       </td>
                     ))}
                     <td className="px-2 py-1">
-                      {m.source.kind === 'demo' ? <Tag tone="warn">Ejemplo</Tag> : m.source.kind === 'manual' ? <Tag>Manual</Tag> : <Tag tone="blue">Importado</Tag>}
+                      {m.source.kind === 'demo' ? <Tag tone="warn">Demostrativo</Tag> : m.source.kind === 'manual' ? <Tag>Manual</Tag> : <Tag tone="blue">Importado</Tag>}
                     </td>
                     <td className="px-2 py-1">
                       <Button
@@ -828,20 +828,20 @@ function StoragePanel() {
       <Card className="p-5">
         <div className="flex items-center gap-2.5">
           <FlaskConical size={17} className="text-muted" />
-          <div className="text-[13.5px] font-medium text-ink">Datos de ejemplo</div>
+          <div className="text-[13.5px] font-medium text-ink">Datos base de Copicentro OVNI</div>
           {demo && <Tag tone="warn">Activos</Tag>}
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
-          Cifras ficticias para recorrer la plataforma antes de importar el archivo real. Se marcan en toda la interfaz y en los reportes, y nunca reemplazan datos importados.
+          Las cifras de Dashboard_Copicentro.xlsx, que el propio archivo describe como ejemplos simulados. Se marcan como demostrativas en toda la interfaz y en los reportes, y nunca reemplazan datos que importes.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {demo ? (
-            <Button variant="outline" onClick={() => (clearDemo(), notify('Datos de ejemplo eliminados.'))}>
-              <Trash2 size={15} /> Quitar datos de ejemplo
+            <Button variant="outline" onClick={() => (clearDemo(), notify('Datos base eliminados.'))}>
+              <Trash2 size={15} /> Quitar datos base
             </Button>
           ) : (
-            <Button variant="outline" onClick={() => (loadDemo(), notify('Datos de ejemplo cargados en Copicentro OVNI.'))}>
-              <FlaskConical size={15} /> Cargar datos de ejemplo
+            <Button variant="outline" onClick={() => (loadDemo(), notify('Datos base cargados en Copicentro OVNI.'))}>
+              <FlaskConical size={15} /> Cargar datos base
             </Button>
           )}
         </div>

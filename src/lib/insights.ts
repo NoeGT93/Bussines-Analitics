@@ -150,6 +150,21 @@ export const rulesProvider: InsightProvider = {
       });
     }
 
+    // 5b. Ventas e ingresos en direcciones opuestas
+    const di = pair('ingresos');
+    if (ds_ !== undefined && di !== undefined && Math.sign(ds_) !== Math.sign(di) && Math.abs(ds_ - di) > 0.15) {
+      out.push({
+        id: 'sales-vs-revenue',
+        tone: 'attention',
+        category: 'Ventas',
+        title: ds_ > 0 ? 'Más ventas, pero menos ingresos' : 'Menos ventas, pero más ingresos',
+        figure: `${pct(ds_, 0)} / ${pct(di, 0)}`,
+        body: `Ventas ${pct(ds_)} e ingresos ${pct(di)} entre el primer y el último mes del rango. Ocurre cuando baja el ticket promedio; también puede indicar un error de registro en los ingresos.`,
+        basis: 'Variación del primer al último mes con datos, para ventas y para ingresos.',
+        weight: 14,
+      });
+    }
+
     // 6. Cambios de conversión
     for (const m of ['conversion', 'cierre'] as const) {
       const xs = withData.filter((r) => r.values[m] !== undefined);

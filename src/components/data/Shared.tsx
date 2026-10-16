@@ -28,7 +28,7 @@ export function NoData({ context }: { context?: string }) {
             </Button>
             {isFirst && (
               <Button variant="outline" onClick={loadDemo}>
-                <FlaskConical size={15} /> Ver con datos de ejemplo
+                <FlaskConical size={15} /> Cargar datos base del Excel
               </Button>
             )}
           </div>

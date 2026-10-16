@@ -66,7 +66,18 @@ Hoy los datos se guardan en el navegador (`localStorage`): son privados de ese e
 
 ## Datos
 
-Las cifras del Excel son demostrativas y no deben presentarse como verificadas. El botón **Ver con datos de ejemplo** carga cifras ficticias, marcadas en toda la interfaz y en los reportes, para recorrer la plataforma sin el archivo real.
+`datos/Dashboard_Copicentro.xlsx` es el archivo base. En la primera visita, Copicentro OVNI arranca con sus cifras (hojas `Datos_Mensuales` y `Fuentes_Trafico`), que el propio archivo describe como ejemplos simulados: se marcan como **demostrativas** en toda la interfaz y en los reportes. Al importar datos reales, los meses coincidentes se reemplazan; los datos base se pueden quitar en Gestión de datos → Almacenamiento.
+
+Construex Guatemala arranca vacía, con su estructura lista para importar.
+
+### Inconsistencias detectadas en el archivo base
+
+- La columna **Clics / consultas** combina dos conceptos; se guarda como clics y el embudo la rotula así.
+- **Fuentes_Trafico no coincide con Datos_Mensuales**: ingresos Q 277,700 vs. Q 136,000; ventas 6,475 vs. 11,770; visitas 31,500 vs. 34,550. El ticket por canal (≈ Q 42.89) es casi 4 veces el mensual (≈ Q 11.55). Se muestran por separado y nunca se consolidan.
+- **Ventas +76 % e ingresos −33 %** de enero a septiembre: el ticket cae de Q 18.37 a Q 6.96. Los ingresos se repiten (Q 18,000 tres meses, Q 15,000 tres meses), igual que clientes nuevos (225 y 238).
+- **Conversión de 33–35 %** (ventas ÷ visitas web): muy alta para tráfico web; probablemente las ventas incluyen clientes de mostrador.
+- En Fuentes_Trafico, Facebook/Instagram y Google registran más clics/consultas que visitas, y clientes recurrentes/referidos aparecen con 0.
+- Las conclusiones escritas en la hoja (“los ingresos crecen con más ventas”) contradicen la hoja mensual, donde los ingresos bajan mientras las ventas suben.
 
 ## Tecnología
 

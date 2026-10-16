@@ -118,7 +118,7 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
     doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, 'F');
     doc.setTextColor(140, 90, 10);
     doc.setFontSize(9);
-    doc.text('Contiene datos de ejemplo ficticios. No usar para decisiones.', M + 10, y + 16);
+    doc.text('Cifras demostrativas del archivo base, no verificadas. No usar para decisiones.', M + 10, y + 16);
     y += 38;
   }
 

@@ -116,7 +116,7 @@ export function MonthDetail() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5 text-ink">
                         {ds.companies.find((c) => c.id === r.companyId)?.name}
-                        {r.source.kind === 'demo' && <Tag tone="warn">Ejemplo ficticio</Tag>}
+                        {r.source.kind === 'demo' && <Tag tone="warn">Demostrativo</Tag>}
                         {r.source.kind === 'manual' && <Tag>Editado a mano</Tag>}
                       </div>
                       <div className="mt-0.5 text-muted">

@@ -407,7 +407,7 @@ export function Header() {
         </div>
         {demo && page !== 'data' && (
           <span className="hidden xl:inline-flex">
-            <Tag tone="warn">Incluye datos de ejemplo ficticios</Tag>
+            <Tag tone="warn">Cifras demostrativas del archivo, no verificadas</Tag>
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
@@ -420,7 +420,7 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2 px-3 pb-2.5 md:hidden">
         <RangePicker />
-        {demo && <Tag tone="warn">Datos de ejemplo</Tag>}
+        {demo && <Tag tone="warn">Cifras demostrativas</Tag>}
       </div>
     </header>
   );

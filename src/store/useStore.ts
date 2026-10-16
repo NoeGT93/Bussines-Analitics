@@ -92,7 +92,14 @@ function fallbackRange(): DateRange {
   return { from: `${now.getFullYear()}-01`, to };
 }
 
-const initialDs = activeRepository.load() ?? emptyDataset();
+/** Primera visita: Copicentro OVNI arranca con los datos de Dashboard_Copicentro.xlsx */
+function seededDataset(): Dataset {
+  const ds = emptyDataset();
+  const seed = demoCopicentro(ds.companies[0].id);
+  return { ...ds, monthly: seed.monthly, channels: seed.channels };
+}
+
+const initialDs = activeRepository.load() ?? seededDataset();
 const prefs = loadPrefs();
 const initialScope = prefs.scope && (prefs.scope === 'consolidado' || initialDs.companies.some((c) => c.id === prefs.scope)) ? prefs.scope : initialDs.companies[0].id;
 

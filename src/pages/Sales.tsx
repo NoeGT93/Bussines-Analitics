@@ -238,7 +238,7 @@ export function Sales() {
             <Funnel
               stages={[
                 { label: 'Visitas web', value: totalOf(rows, 'visitas').value },
-                { label: 'Consultas', value: totalOf(rows, 'consultas').value },
+                totalOf(rows, 'consultas').value !== undefined ? { label: 'Consultas', value: totalOf(rows, 'consultas').value } : { label: 'Clics / consultas', value: totalOf(rows, 'clics').value },
                 { label: 'Oportunidades', value: undefined, note: 'Sin registro de oportunidades' },
                 { label: 'Ventas', value: totalOf(rows, 'ventas').value },
               ]}
