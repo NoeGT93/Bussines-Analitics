@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 246 247 249;
+  --surface: 255 255 255;
+  --sunken: 241 243 246;
+  --ink: 14 23 38;
+  --muted: 91 101 119;
+  --faint: 148 156 171;
+  --line: 228 231 236;
+  --electric: 47 91 255;
+  --deep: 11 42 111;
+  --up: 12 140 100;
+  --down: 214 58 64;
+  --warn: 196 128 18;
+  color-scheme: light;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+:root.dark {
+  --bg: 9 12 20;
+  --surface: 17 21 32;
+  --sunken: 23 28 41;
+  --ink: 232 235 242;
+  --muted: 152 160 176;
+  --faint: 104 112 130;
+  --line: 36 42 58;
+  --electric: 98 132 255;
+  --deep: 160 184 255;
+  --up: 52 199 145;
+  --down: 255 107 112;
+  --warn: 240 176 64;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg font-sans text-ink antialiased;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+*:focus-visible {
+  outline: 2px solid rgb(var(--electric));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: rgb(var(--electric) / 0.18);
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgb(var(--line));
+  border-radius: 8px;
+}
+
+/* Recharts: quitar contornos de foco del SVG */
+.recharts-wrapper:focus,
+.recharts-surface:focus,
+.recharts-wrapper *:focus {
+  outline: none;
+}
+
+.recharts-brush-texts text {
+  fill: rgb(var(--muted));
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

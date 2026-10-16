@@ -1,0 +1,139 @@
+// Modelo de datos de la plataforma.
+// Cada registro conserva su origen (archivo, hoja, fila) para trazabilidad.
+
+export type CompanyId = string;
+
+export interface Company {
+  id: CompanyId;
+  name: string;
+  shortName: string;
+  color: string; // hex
+  links?: { label: string; url: string }[];
+  note?: string;
+}
+
+/** Período mensual en formato YYYY-MM */
+export type Period = string;
+
+export interface Provenance {
+  kind: 'import' | 'manual' | 'demo';
+  file?: string;
+  sheet?: string;
+  row?: number;
+  at: string; // ISO
+}
+
+export interface MonthlyRecord {
+  id: string; // companyId:period
+  companyId: CompanyId;
+  period: Period;
+  visitas?: number;
+  clics?: number;
+  consultas?: number;
+  ventas?: number;
+  ingresos?: number;
+  clientesNuevos?: number;
+  clientesRecurrentes?: number;
+  /** Conversión tal como venía en el archivo (solo para validar, no para cálculos) */
+  conversionArchivo?: number;
+  /** Ticket promedio tal como venía en el archivo (solo para validar) */
+  ticketArchivo?: number;
+  source: Provenance;
+}
+
+export type MonthlyField = Exclude<keyof MonthlyRecord, 'id' | 'companyId' | 'period' | 'source'>;
+
+export interface ChannelRecord {
+  id: string;
+  companyId: CompanyId;
+  /** null = acumulado del archivo sin desglose mensual */
+  period: Period | null;
+  canal: string;
+  visitas?: number;
+  clics?: number;
+  consultas?: number;
+  ventas?: number;
+  ingresos?: number;
+  clientesNuevos?: number;
+  source: Provenance;
+}
+
+export type ChannelField = 'visitas' | 'clics' | 'consultas' | 'ventas' | 'ingresos' | 'clientesNuevos';
+
+export interface SocialRecord {
+  id: string;
+  companyId: CompanyId;
+  period: Period;
+  platform: string;
+  tipo: 'organico' | 'pagado' | 'total';
+  alcance?: number;
+  impresiones?: number;
+  reproducciones?: number;
+  interacciones?: number;
+  seguidores?: number;
+  nuevosSeguidores?: number;
+  clicsEnlace?: number;
+  consultas?: number;
+  leads?: number;
+  conversiones?: number;
+  inversion?: number;
+  ingresosAtribuidos?: number;
+  source: Provenance;
+}
+
+export type SocialField = Exclude<keyof SocialRecord, 'id' | 'companyId' | 'period' | 'platform' | 'tipo' | 'source'>;
+
+export interface SocialPost {
+  id: string;
+  companyId: CompanyId;
+  platform: string;
+  fecha: string;
+  titulo: string;
+  url?: string;
+  tipo?: 'organico' | 'pagado';
+  alcance?: number;
+  interacciones?: number;
+  clics?: number;
+  reproducciones?: number;
+  source: Provenance;
+}
+
+export interface Goal {
+  id: string;
+  companyId: CompanyId;
+  period: Period;
+  metric: 'ingresos' | 'ventas' | 'clientesNuevos';
+  target: number;
+}
+
+export interface ImportLogEntry {
+  id: string;
+  at: string;
+  companyId: CompanyId;
+  file: string;
+  kind: ImportKind;
+  inserted: number;
+  updated: number;
+  skipped: number;
+  note?: string;
+}
+
+export type ImportKind = 'monthly' | 'channels' | 'social' | 'posts';
+
+export interface Dataset {
+  version: number;
+  companies: Company[];
+  monthly: MonthlyRecord[];
+  channels: ChannelRecord[];
+  social: SocialRecord[];
+  posts: SocialPost[];
+  goals: Goal[];
+  log: ImportLogEntry[];
+}
+
+export type CompanyScope = CompanyId | 'consolidado';
+
+export interface DateRange {
+  from: Period;
+  to: Period;
+}
