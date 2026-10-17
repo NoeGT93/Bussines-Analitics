@@ -18,7 +18,7 @@ import {
 import { hasDemo, useStore } from '../store/useStore';
 import { Button, Card, CardHeader, cx, Empty, PageHeader, Segmented, Select, Tag } from '../components/ui';
 import {
-  analyzeSheet,
+  findTables,
   buildRecords,
   crossCheck,
   downloadTemplate,
@@ -34,7 +34,7 @@ import { activeRepository, LocalStorageRepository } from '../lib/repository';
 import { exportBackup } from '../lib/exporter';
 import { fmt } from '../lib/format';
 import { labelLong, shift } from '../lib/periods';
-import type { ChannelRecord, Company, Dataset, ImportKind, MonthlyRecord, SocialPost, SocialRecord } from '../types';
+import type { ChannelRecord, Company, CostRecord, Dataset, ImportKind, MonthlyRecord, SocialPost, SocialRecord } from '../types';
 
 type Tab = 'import' | 'records' | 'companies' | 'storage' | 'log';
 
@@ -77,7 +77,7 @@ interface SheetState {
 }
 
 function ImportPanel() {
-  const { ds, scope, upsertMonthly, upsertChannels, upsertSocial, upsertPosts, notify, setPage, setScope } = useStore();
+  const { ds, scope, upsertMonthly, upsertChannels, upsertSocial, upsertPosts, upsertCosts, notify, setPage, setScope } = useStore();
   const [companyId, setCompanyId] = useState(scope === 'consolidado' ? ds.companies[0].id : scope);
   const [year, setYear] = useState(new Date().getFullYear());
   const [file, setFile] = useState<File | null>(null);
@@ -100,10 +100,7 @@ function ImportPanel() {
     setLoading(true);
     try {
       const raw = await readFile(f);
-      const analyzed = raw.map((s) => {
-        const a = analyzeSheet(s);
-        return { a, include: !!a.kind, open: false };
-      });
+      const analyzed = raw.flatMap((s) => findTables(s)).map((a) => ({ a, include: !!a.kind, open: false }));
       const firstIncluded = analyzed.findIndex((s) => s.include);
       if (firstIncluded >= 0) analyzed[firstIncluded].open = true;
       setSheets(analyzed);
@@ -129,7 +126,7 @@ function ImportPanel() {
     return crossCheck(monthly, ch);
   }, [builds]);
 
-  const existing = useMemo(() => new Set([...ds.monthly, ...ds.channels, ...ds.social, ...ds.posts].map((r) => r.id)), [ds]);
+  const existing = useMemo(() => new Set([...ds.monthly, ...ds.channels, ...ds.social, ...ds.posts, ...ds.costs].map((r) => r.id)), [ds]);
   const summary = builds.reduce(
     (acc, b) => {
       if (!b) return acc;
@@ -152,6 +149,7 @@ function ImportPanel() {
       if (b.kind === 'channels') upsertChannels(b.records as ChannelRecord[], name, companyId);
       if (b.kind === 'social') upsertSocial(b.records as SocialRecord[], name, companyId);
       if (b.kind === 'posts') upsertPosts(b.records as SocialPost[], name, companyId);
+      if (b.kind === 'costs') upsertCosts(b.records as CostRecord[], name, companyId);
     });
     notify(`${total} registros importados en ${ds.companies.find((c) => c.id === companyId)?.name}.`);
     setSheets([]);
@@ -245,7 +243,7 @@ function ImportPanel() {
             )}
             {targetHasData && file && (
               <p className="mt-3 flex items-start gap-2 rounded-lg bg-warn/10 px-3 py-2 text-[12.5px] text-warn">
-                <AlertTriangle size={15} className="mt-0.5 shrink-0" /> Esta empresa tiene las cifras demostrativas del archivo base. Los meses que importes las reemplazarán.
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" /> Esta empresa ya tiene los datos del archivo base. Los meses y canales que importes los reemplazarán.
               </p>
             )}
           </div>
@@ -253,7 +251,7 @@ function ImportPanel() {
 
         {sheets.map((s, i) => (
           <SheetCard
-            key={s.a.sheet.name}
+            key={`${s.a.sheet.name}:${s.a.headerRow}`}
             s={s}
             build={builds[i]}
             onChange={(next) => setSheets((list) => list.map((x, j) => (j === i ? next : x)))}
@@ -342,7 +340,10 @@ function SheetCard({ s, build, onChange }: { s: SheetState; build: BuildResult |
       <div className="flex flex-wrap items-center gap-3 px-5 py-3.5">
         <button type="button" onClick={() => onChange({ ...s, open: !s.open })} className="flex min-w-0 flex-1 items-center gap-2.5 text-left" aria-expanded={s.open}>
           <ChevronDown size={16} className={cx('shrink-0 text-faint transition-transform', !s.open && '-rotate-90')} />
-          <span className="truncate text-[13.5px] font-medium text-ink">{a.sheet.name}</span>
+          <span className="min-w-0 truncate text-[13.5px] font-medium text-ink">
+            {a.sheet.name}
+            {a.title && <span className="font-normal text-muted"> · {a.title.charAt(0) + a.title.slice(1).toLowerCase()}</span>}
+          </span>
           {s.include && a.kind ? (
             errors ? <Tag tone="down">{errors} error{errors > 1 ? 'es' : ''}</Tag> : <Tag tone="up">{build?.records.length ?? 0} registros</Tag>
           ) : (
@@ -586,7 +587,7 @@ function RecordsPanel() {
                       </td>
                     ))}
                     <td className="px-2 py-1">
-                      {m.source.kind === 'demo' ? <Tag tone="warn">Demostrativo</Tag> : m.source.kind === 'manual' ? <Tag>Manual</Tag> : <Tag tone="blue">Importado</Tag>}
+                      {m.source.kind === 'demo' ? <Tag tone="warn">Base</Tag> : m.source.kind === 'manual' ? <Tag>Manual</Tag> : <Tag tone="blue">Importado</Tag>}
                     </td>
                     <td className="px-2 py-1">
                       <Button
@@ -784,7 +785,7 @@ function StoragePanel() {
       const parsed = JSON.parse(await f.text()) as Dataset;
       if (!parsed || !Array.isArray(parsed.monthly) || !Array.isArray(parsed.companies)) throw new Error('formato');
       if (!confirm('Se reemplazarán todos los datos actuales por los del respaldo. ¿Continuar?')) return;
-      replaceDataset({ ...parsed, channels: parsed.channels ?? [], social: parsed.social ?? [], posts: parsed.posts ?? [], goals: parsed.goals ?? [], log: parsed.log ?? [] });
+      replaceDataset({ ...parsed, channels: parsed.channels ?? [], social: parsed.social ?? [], posts: parsed.posts ?? [], goals: parsed.goals ?? [], costs: parsed.costs ?? [], settings: parsed.settings ?? {}, log: parsed.log ?? [] });
       notify('Respaldo restaurado.');
     } catch {
       notify('El archivo no es un respaldo válido de esta plataforma.', 'error');

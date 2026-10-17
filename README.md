@@ -92,6 +92,68 @@ Hoy los datos se guardan en el navegador (`localStorage`): son privados de ese e
 
 Construex Guatemala arranca vacía, con su estructura lista para importar.
 
+### Archivo base (versión revisada por el equipo)
+
+La hoja `Datos_Mensuales` trae tres cuadros, y el importador detecta cada uno por separado:
+
+1. **Resumen mensual**: visitas web/otros, clics/consultas, cierre de ventas (n.º de ventas), ventas mensuales (ingresos en Q) y clientes nuevos.
+2. **Medios de comunicación y ventas aportadas**: acumulado por canal.
+3. **% de participación**: se deriva del cuadro 2; no se importa, la plataforma lo recalcula.
+
+Observaciones que la plataforma señala al importar:
+
+- **La fila TOTAL del cuadro 1 cuenta tres meses dos veces** (`=SUM(B3,B3:B8,B8:B11,B11)` suma enero, junio y septiembre dos veces). Visitas: 46,600 en el archivo vs. 34,550 reales; clics/consultas 16,290 vs. 12,050; cierre de ventas 13,182 vs. 9,605; clientes nuevos 2,915 vs. 2,214. La columna de ingresos sí está bien (Q 277,700).
+- **El cuadro de medios coincide con esos totales inflados**, no con la suma real: sus visitas, consultas y ventas superan a las mensuales. Solo los ingresos por canal (Q 277,700) cuadran con los mensuales. Se muestran por separado y no se consolidan.
+- **Ventas suben 91 % e ingresos bajan 33 %** de enero a septiembre: el ticket cae de Q 37.09 a Q 13.03.
+- **Clics / consultas** es una sola columna; se guarda como clics.
+- Clientes nuevos repite 225 (tres meses) y 238 (varios meses).
+
+## ROI y costos
+
+El archivo no trae inversión ni costos, por eso la sección **ROI y costos** no muestra porcentajes hasta que se registre lo invertido. Ahí se explica cada fórmula y se puede escribir la inversión por canal (acumulada) o por mes, o importar la plantilla de costos.
+
+| Indicador | Fórmula |
+|---|---|
+| ROI | (retorno − inversión) ÷ inversión; retorno = ingresos × margen bruto si se define |
+| ROAS | ingresos ÷ inversión |
+| Costo por quetzal generado | inversión ÷ ingresos |
+| Costo por venta (CPA) | inversión ÷ ventas |
+| Costo por cliente nuevo (CAC) | inversión ÷ clientes nuevos |
+| Costo por consulta | inversión ÷ clics o consultas |
+| Ventas para recuperar la inversión | inversión ÷ (ticket promedio × margen) |
+
+Si falta inversión en algunos meses o canales, la plataforma lo advierte porque el ROI total aparecería más alto de lo real.
+
+## Arquitectura
+
+```
+src/
+  types/            Modelo de datos con trazabilidad de origen (archivo, hoja, fila)
+  lib/
+    metrics.ts      Cálculo de indicadores, consolidación, canales y redes
+    insights.ts     Motor de hallazgos (interfaz InsightProvider lista para IA)
+    importer.ts     Lectura, detección, mapeo y validación de archivos
+    exporter.ts     CSV, XLSX, PDF ejecutivo y respaldo JSON
+    repository.ts   Capa de persistencia intercambiable
+  store/            Estado global (zustand)
+  components/       UI, gráficos, KPIs, layout y paneles
+  pages/            Una página por sección
+```
+
+### Persistencia
+
+Hoy los datos se guardan en el navegador (`localStorage`): son privados de ese equipo y se pierden si se borran los datos del sitio. Para compartirlos entre usuarios, implementa la interfaz `DataRepository` de `src/lib/repository.ts` con una base de datos (por ejemplo Supabase o una API propia) y cámbiala en `activeRepository`.
+
+### Hallazgos con IA
+
+`src/lib/insights.ts` define `InsightProvider`. Agrega un proveedor nuevo al arreglo `providers`; sus resultados deben mostrarse etiquetados como generados por IA.
+
+## Datos
+
+`datos/Dashboard_Copicentro.xlsx` es el archivo base. En la primera visita, Copicentro OVNI arranca con sus cifras (hojas `Datos_Mensuales` y `Fuentes_Trafico`), que el propio archivo describe como ejemplos simulados: se marcan como **demostrativas** en toda la interfaz y en los reportes. Al importar datos reales, los meses coincidentes se reemplazan; los datos base se pueden quitar en Gestión de datos → Almacenamiento.
+
+Construex Guatemala arranca vacía, con su estructura lista para importar.
+
 ### Inconsistencias detectadas en el archivo base
 
 - La columna **Clics / consultas** combina dos conceptos; se guarda como clics y el embudo la rotula así.

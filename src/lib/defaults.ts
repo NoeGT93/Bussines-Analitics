@@ -12,7 +12,7 @@ export const DEFAULT_COMPANIES: Company[] = [
       { label: 'Sitio web', url: 'https://copicentrovni.wixsite.com/copicentro-ovni' },
       { label: 'Perfil en Construex', url: 'https://www.construex.gt/exhibidores/copicentros_ovni' },
     ],
-    note: 'Datos base: archivo Dashboard_Copicentro.xlsx (cifras demostrativas, no verificadas).',
+    note: 'Datos base: archivo Dashboard_Copicentro.xlsx (cifras sin verificar).',
   },
   {
     id: 'construex-gt',
@@ -33,6 +33,8 @@ export function emptyDataset(): Dataset {
     social: [],
     posts: [],
     goals: [],
+    costs: [],
+    settings: {},
     log: [],
   };
 }

@@ -24,6 +24,7 @@ import {
   X,
   LayoutDashboard,
   Activity,
+  Coins,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { MarketTicker } from './Ticker';
@@ -37,6 +38,7 @@ export const NAV: { id: PageId; label: string; icon: ReactNode }[] = [
   { id: 'social', label: 'Redes sociales', icon: <Share2 size={17} /> },
   { id: 'sales', label: 'Ventas', icon: <BarChart3 size={17} /> },
   { id: 'traffic', label: 'Tráfico y conversiones', icon: <MousePointerClick size={17} /> },
+  { id: 'roi', label: 'ROI y costos', icon: <Coins size={17} /> },
   { id: 'compare', label: 'Comparativas', icon: <GitCompareArrows size={17} /> },
   { id: 'insights', label: 'Hallazgos', icon: <Lightbulb size={17} /> },
   { id: 'data', label: 'Gestión de datos', icon: <Database size={17} /> },
@@ -412,7 +414,7 @@ export function Header() {
         </div>
         {demo && page !== 'data' && (
           <span className="hidden xl:inline-flex">
-            <Tag tone="warn">Cifras demostrativas del archivo, no verificadas</Tag>
+            <Tag tone="warn">Datos del archivo base, sin verificar</Tag>
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
@@ -425,7 +427,7 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2 px-3 pb-2.5 md:hidden">
         <RangePicker />
-        {demo && <Tag tone="warn">Cifras demostrativas</Tag>}
+        {demo && <Tag tone="warn">Sin verificar</Tag>}
       </div>
       <MarketTicker />
     </header>

@@ -12,14 +12,15 @@ import type {
   Period,
   SocialPost,
   SocialRecord,
+  CostRecord,
 } from '../types';
 import { activeRepository } from '../lib/repository';
 import { emptyDataset } from '../lib/defaults';
-import { demoCopicentro } from '../lib/demo';
+import { demoCopicentro, SEED_VERSION } from '../lib/demo';
 import { shift } from '../lib/periods';
 import { rowsFor } from '../lib/metrics';
 
-export type PageId = 'overview' | 'social' | 'sales' | 'traffic' | 'compare' | 'insights' | 'data';
+export type PageId = 'overview' | 'social' | 'sales' | 'traffic' | 'roi' | 'compare' | 'insights' | 'data';
 
 export interface DetailTarget {
   period: Period;
@@ -62,6 +63,9 @@ interface Actions {
   upsertChannels(recs: ChannelRecord[], file: string, companyId: string): Upsert<ChannelRecord>;
   upsertSocial(recs: SocialRecord[], file: string, companyId: string): Upsert<SocialRecord>;
   upsertPosts(recs: SocialPost[], file: string, companyId: string): Upsert<SocialPost>;
+  upsertCosts(recs: CostRecord[], file: string, companyId: string): Upsert<CostRecord>;
+  setCost(rec: { companyId: string; period: Period | null; canal: string | null; inversion?: number; concepto?: string }): void;
+  setMargin(companyId: string, margen: number | undefined): void;
   updateMonthly(id: string, patch: Partial<MonthlyRecord>): void;
   deleteMonthly(id: string): void;
   deleteChannel(id: string): void;
@@ -105,10 +109,27 @@ function fallbackRange(): DateRange {
 function seededDataset(): Dataset {
   const ds = emptyDataset();
   const seed = demoCopicentro(ds.companies[0].id);
-  return { ...ds, monthly: seed.monthly, channels: seed.channels };
+  return { ...ds, monthly: seed.monthly, channels: seed.channels, seedVersion: SEED_VERSION };
 }
 
-const initialDs = activeRepository.load() ?? seededDataset();
+/** Si el navegador guardó datos base de una versión anterior del Excel, se reemplazan por los nuevos (los importados no se tocan) */
+function upgradeSeed(ds: Dataset): Dataset {
+  if ((ds.seedVersion ?? 1) >= SEED_VERSION) return ds;
+  const id = ds.companies[0]?.id;
+  if (!id) return ds;
+  const seed = demoCopicentro(id);
+  const realMonths = new Set(ds.monthly.filter((m) => m.source.kind !== 'demo').map((m) => m.id));
+  const realCh = new Set(ds.channels.filter((m) => m.source.kind !== 'demo').map((m) => m.id));
+  return {
+    ...ds,
+    monthly: [...ds.monthly.filter((m) => m.source.kind !== 'demo'), ...seed.monthly.filter((m) => !realMonths.has(m.id))],
+    channels: [...ds.channels.filter((m) => m.source.kind !== 'demo'), ...seed.channels.filter((m) => !realCh.has(m.id))],
+    seedVersion: SEED_VERSION,
+  };
+}
+
+const stored = activeRepository.load();
+const initialDs = stored ? upgradeSeed(stored) : seededDataset();
 const prefs = loadPrefs();
 const initialScope = prefs.scope && (prefs.scope === 'consolidado' || initialDs.companies.some((c) => c.id === prefs.scope)) ? prefs.scope : initialDs.companies[0].id;
 
@@ -214,6 +235,20 @@ export const useStore = create<Store>((set, get) => {
       mutate((ds) => ({ ...ds, posts: r.next, log: [log(companyId, file, 'posts', r), ...ds.log].slice(0, 200) }));
       return { ...r, items: recs };
     },
+    upsertCosts: (recs, file, companyId) => {
+      const r = upsert(get().ds.costs, recs);
+      mutate((ds) => ({ ...ds, costs: r.next, log: [log(companyId, file, 'costs', r), ...ds.log].slice(0, 200) }));
+      return { ...r, items: recs };
+    },
+    setCost: ({ companyId, period, canal, inversion, concepto }) =>
+      mutate((ds) => {
+        const id = `${companyId}:${period ?? 'total'}:${canal ?? 'total'}`;
+        const rest = ds.costs.filter((c) => c.id !== id);
+        if (inversion === undefined) return { ...ds, costs: rest };
+        return { ...ds, costs: [...rest, { id, companyId, period, canal, inversion, concepto, source: { kind: 'manual', at: new Date().toISOString() } }] };
+      }),
+    setMargin: (companyId, margen) =>
+      mutate((ds) => ({ ...ds, settings: { ...ds.settings, [companyId]: { ...(ds.settings[companyId] ?? {}), margen } } })),
     updateMonthly: (id, patch) =>
       mutate((ds) => ({
         ...ds,
@@ -236,6 +271,7 @@ export const useStore = create<Store>((set, get) => {
         social: ds.social.filter((r) => r.companyId !== companyId),
         posts: ds.posts.filter((r) => r.companyId !== companyId),
         goals: ds.goals.filter((r) => r.companyId !== companyId),
+        costs: ds.costs.filter((r) => r.companyId !== companyId),
       })),
     loadDemo: () => {
       const id = get().ds.companies[0].id;

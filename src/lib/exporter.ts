@@ -4,6 +4,7 @@ import autoTable from 'jspdf-autotable';
 import type { CompanyScope, Dataset, DateRange } from '../types';
 import { channelsFor, kpi, METRICS, rowsFor, type SeriesMetric } from './metrics';
 import { generateInsights } from './insights';
+import { roiByChannel, roiByMonth, roiTotal } from './roi';
 import { fmt, pct, pp } from './format';
 import { labelLong, labelRange } from './periods';
 
@@ -66,6 +67,16 @@ export function exportXlsx(ds: Dataset, scope: CompanyScope, range: DateRange) {
     const chWs = XLSX.utils.aoa_to_sheet([h, ...b, [], [ch.mode === 'acumulado' ? 'Acumulado del archivo; no filtrado por fecha.' : `Filtrado: ${labelRange(range)}`]]);
     XLSX.utils.book_append_sheet(wb, chWs, 'Fuentes_Trafico');
   }
+  const rt = roiTotal(ds, scope, range);
+  if (rt.hasCosts) {
+    const r2 = (v?: number) => (v === undefined ? '' : Math.round(v * 10000) / 10000);
+    const rows: (string | number)[][] = [['ROI y costos', labelRange(range)], [], ['Canal', 'Inversión (Q)', 'Ingresos (Q)', 'ROI', 'ROAS', 'Costo por venta (Q)', 'Costo por quetzal (Q)']];
+    for (const c of roiByChannel(ds, scope, range).rows) rows.push([c.canal, r2(c.inversion), r2(c.ingresos), r2(c.roi), r2(c.roas), r2(c.cpa), r2(c.costoPorQuetzal)]);
+    rows.push([], ['Mes', 'Inversión (Q)', 'Ingresos (Q)', 'ROI', 'ROAS', 'Costo por venta (Q)', 'Costo por cliente nuevo (Q)']);
+    for (const m of roiByMonth(ds, scope, range)) rows.push([m.period, r2(m.inversion), r2(m.ingresos), r2(m.roi), r2(m.roas), r2(m.cpa), r2(m.cac)]);
+    rows.push([], ['Total', r2(rt.inversion), r2(rt.ingresos), r2(rt.roi), r2(rt.roas), r2(rt.cpa), r2(rt.cac)], [], ['ROI = (retorno − inversión) ÷ inversión. Retorno = ingresos × margen bruto si está definido.']);
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'ROI');
+  }
   XLSX.writeFile(wb, `${slug(scopeName(ds, scope))}-${range.from}_${range.to}.xlsx`);
 }
 
@@ -118,7 +129,7 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
     doc.roundedRect(M, y, W - 2 * M, 26, 4, 4, 'F');
     doc.setTextColor(140, 90, 10);
     doc.setFontSize(9);
-    doc.text('Cifras demostrativas del archivo base, no verificadas. No usar para decisiones.', M + 10, y + 16);
+    doc.text('Datos del archivo base, sin verificar contra registros contables.', M + 10, y + 16);
     y += 38;
   }
 

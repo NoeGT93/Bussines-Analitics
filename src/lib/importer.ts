@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { ChannelRecord, ImportKind, MonthlyRecord, Provenance, SocialPost, SocialRecord } from '../types';
+import type { ChannelRecord, CostRecord, ImportKind, MonthlyRecord, Provenance, SocialPost, SocialRecord } from '../types';
 import { coercePeriod, labelLong } from './periods';
 import { normalizeChannel } from './metrics';
 
@@ -20,7 +20,7 @@ export async function readFile(file: File): Promise<RawSheet[]> {
     : XLSX.read(buf, { type: 'array', cellDates: true });
   return wb.SheetNames.map((name) => ({
     name,
-    rows: XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: false }),
+    rows: XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[name], { header: 1, raw: true, defval: null, blankrows: true }),
   }));
 }
 
@@ -40,14 +40,14 @@ const has = (h: string, ...xs: string[]) => xs.some((x) => h.includes(x));
 
 const periodSpec: FieldSpec = { key: 'period', label: 'Mes / período', required: true, kind: 'period', match: (h) => /^(mes|periodo|fecha|month|mes\/ano|ano-mes)\b/.test(h) || h === 'mes' };
 
-export const FIELD_SPECS: Record<ImportKind, FieldSpec[]> = {
+export const FIELD_SPECS = {
   monthly: [
     periodSpec,
     { key: 'visitas', label: 'Visitas web', kind: 'number', match: (h) => has(h, 'visita', 'sesion', 'trafico web') },
     { key: 'clics', label: 'Clics', kind: 'number', match: (h) => has(h, 'clic', 'click') && !has(h, 'tasa', '%', 'ctr') },
     { key: 'consultas', label: 'Consultas', kind: 'number', match: (h) => has(h, 'consulta', 'mensaje', 'cotizac', 'inquir') && !has(h, 'tasa', '%') },
-    { key: 'ventas', label: 'Ventas / tickets', kind: 'number', match: (h) => (has(h, 'venta', 'transacc', 'pedido', 'orden') || h === 'tickets') && !isMoney(h) && !has(h, 'tasa', '%', 'promedio') },
-    { key: 'ingresos', label: 'Ingresos (Q)', kind: 'money', match: (h) => has(h, 'ingreso', 'facturac', 'revenue') || (has(h, 'venta', 'monto') && isMoney(h)) },
+    { key: 'ventas', label: 'Ventas / tickets', kind: 'number', match: (h) => (has(h, 'venta', 'transacc', 'pedido', 'orden', 'cierre') || h === 'tickets') && !isMoney(h) && !has(h, 'tasa', '%', 'promedio', 'mensual') },
+    { key: 'ingresos', label: 'Ingresos (Q)', kind: 'money', match: (h) => has(h, 'ingreso', 'facturac', 'revenue', 'ventas mensuales', 'venta mensual') || (has(h, 'venta', 'monto') && isMoney(h)) },
     { key: 'clientesNuevos', label: 'Clientes nuevos', kind: 'number', match: (h) => has(h, 'cliente') && has(h, 'nuevo') },
     { key: 'clientesRecurrentes', label: 'Clientes recurrentes', kind: 'number', match: (h) => has(h, 'cliente') && has(h, 'recurrent', 'repetid') },
     { key: 'conversionArchivo', label: 'Conversión (del archivo)', kind: 'percent', match: (h) => has(h, 'conversion', 'conv.') || h === 'conv' },
@@ -59,8 +59,8 @@ export const FIELD_SPECS: Record<ImportKind, FieldSpec[]> = {
     { key: 'visitas', label: 'Visitas', kind: 'number', match: (h) => has(h, 'visita', 'sesion', 'trafico') && !has(h, '%') },
     { key: 'clics', label: 'Clics', kind: 'number', match: (h) => has(h, 'clic', 'click') && !has(h, 'tasa', '%') },
     { key: 'consultas', label: 'Consultas', kind: 'number', match: (h) => has(h, 'consulta', 'mensaje', 'lead', 'cotizac') && !has(h, 'tasa', '%') },
-    { key: 'ventas', label: 'Ventas', kind: 'number', match: (h) => (has(h, 'venta', 'transacc', 'pedido') || h === 'tickets') && !isMoney(h) && !has(h, '%', 'tasa') },
-    { key: 'ingresos', label: 'Ingresos (Q)', kind: 'money', match: (h) => has(h, 'ingreso', 'facturac', 'revenue') || (has(h, 'venta', 'monto') && isMoney(h)) },
+    { key: 'ventas', label: 'Ventas', kind: 'number', match: (h) => (has(h, 'venta', 'transacc', 'pedido', 'cierre') || h === 'tickets') && !isMoney(h) && !has(h, '%', 'tasa', 'mensual') },
+    { key: 'ingresos', label: 'Ingresos (Q)', kind: 'money', match: (h) => has(h, 'ingreso', 'facturac', 'revenue', 'ventas mensuales', 'venta mensual') || (has(h, 'venta', 'monto') && isMoney(h)) },
     { key: 'clientesNuevos', label: 'Clientes nuevos', kind: 'number', match: (h) => has(h, 'cliente') && has(h, 'nuevo') },
   ],
   social: [
@@ -91,13 +91,21 @@ export const FIELD_SPECS: Record<ImportKind, FieldSpec[]> = {
     { key: 'clics', label: 'Clics', kind: 'number', match: (h) => has(h, 'clic', 'click') },
     { key: 'reproducciones', label: 'Reproducciones', kind: 'number', match: (h) => has(h, 'reproduc', 'views') },
   ],
-};
+} as Record<ImportKind, FieldSpec[]>;
+
+FIELD_SPECS.costs = [
+  { key: 'inversion', label: 'Inversión / costo (Q)', required: true, kind: 'money', match: (h) => has(h, 'inversion', 'gasto', 'costo', 'presupuesto', 'pauta', 'spend', 'invertido') && !has(h, 'por ', 'tasa', '%') },
+  { ...periodSpec, required: false, label: 'Mes (opcional)' },
+  { key: 'canal', label: 'Canal (opcional)', kind: 'text', match: (h) => has(h, 'canal', 'fuente', 'origen', 'medio', 'plataforma') },
+  { key: 'concepto', label: 'Concepto', kind: 'text', match: (h) => has(h, 'concepto', 'descripcion', 'detalle', 'nota') },
+];
 
 export const KIND_LABEL: Record<ImportKind, string> = {
   monthly: 'Datos mensuales',
   channels: 'Fuentes de tráfico',
   social: 'Redes sociales (mensual)',
   posts: 'Publicaciones',
+  costs: 'Inversión y costos',
 };
 
 function isMoney(h: string) {
@@ -121,6 +129,8 @@ export type Mapping = Record<string, number>; // fieldKey -> índice de columna 
 
 export interface SheetAnalysis {
   sheet: RawSheet;
+  /** Título del cuadro (texto encima de los encabezados), si lo hay */
+  title?: string;
   headerRow: number;
   headers: string[];
   kind: ImportKind | null;
@@ -158,7 +168,7 @@ function scoreMapping(kind: ImportKind, m: Mapping) {
 export function analyzeSheet(sheet: RawSheet, forced?: ImportKind): SheetAnalysis {
   const name = normHeader(sheet.name);
   let best: SheetAnalysis = { sheet, headerRow: 0, headers: [], kind: null, mapping: {}, score: 0 };
-  const kinds: ImportKind[] = forced ? [forced] : ['monthly', 'channels', 'social', 'posts'];
+  const kinds: ImportKind[] = forced ? [forced] : ['monthly', 'channels', 'social', 'posts', 'costs'];
   const limit = Math.min(sheet.rows.length, 20);
   for (let r = 0; r < limit; r++) {
     const row = sheet.rows[r] ?? [];
@@ -173,6 +183,7 @@ export function analyzeSheet(sheet: RawSheet, forced?: ImportKind): SheetAnalysi
       if (kind === 'monthly' && has(name, 'mensual', 'datos')) score += 3;
       if (kind === 'social' && has(name, 'social', 'redes')) score += 3;
       if (kind === 'posts' && has(name, 'publicac', 'post')) score += 3;
+      if (kind === 'costs' && has(name, 'costo', 'inversion', 'roi', 'gasto')) score += 3;
       // Mensual requiere al menos un indicador
       if (kind === 'monthly' && mapping.canal === undefined && Object.entries(mapping).filter(([k, v]) => k !== 'period' && v >= 0).length === 0) score = 0;
       if (score > best.score) best = { sheet, headerRow: r, headers, kind, mapping, score };
@@ -183,6 +194,61 @@ export function analyzeSheet(sheet: RawSheet, forced?: ImportKind): SheetAnalysi
   }
   if (!best.kind) best.reason = 'No se reconocieron columnas de mes, canal o plataforma.';
   return best;
+}
+
+/**
+ * Una hoja puede traer varios cuadros (por ejemplo: resumen mensual, medios de comunicación y % de participación).
+ * Se detecta cada fila de encabezados y se analiza cada cuadro por separado.
+ */
+export function findTables(sheet: RawSheet): SheetAnalysis[] {
+  const name = normHeader(sheet.name);
+  if (has(name, 'dashboard', 'resumen', 'grafic') && !has(name, 'datos')) {
+    return [{ sheet, headerRow: 0, headers: [], kind: null, mapping: {}, score: 0, reason: 'Hoja de resumen o gráficos: sus valores se derivan de las otras hojas, no se importa.' }];
+  }
+  const kinds: ImportKind[] = ['monthly', 'channels', 'social', 'posts', 'costs'];
+  const found: SheetAnalysis[] = [];
+  for (let r = 0; r < sheet.rows.length; r++) {
+    const row = sheet.rows[r] ?? [];
+    if (row.filter((c) => typeof c === 'string' && c.trim()).length < 3) continue;
+    const headers = row.map((c) => (c === null || c === undefined ? '' : String(c)));
+    let best: { kind: ImportKind; mapping: Mapping; score: number } | null = null;
+    for (const kind of kinds) {
+      const mapping = autoMap(kind, headers);
+      const score = scoreMapping(kind, mapping);
+      const useful = Object.entries(mapping).filter(([, v]) => v >= 0).length;
+      if (score >= 3 && useful >= 3 && (!best || score > best.score)) best = { kind, mapping, score };
+    }
+    if (!best) continue;
+    // Título: primer texto en las dos filas de arriba
+    let title: string | undefined;
+    for (const t of [r - 1, r - 2]) {
+      const txt = (sheet.rows[t] ?? []).find((c) => typeof c === 'string' && c.trim());
+      if (txt) {
+        title = String(txt).trim();
+        break;
+      }
+    }
+    const a: SheetAnalysis = { sheet, headerRow: r, headers, kind: best.kind, mapping: best.mapping, score: best.score, title };
+    if (isPercentTable(a)) {
+      a.kind = null;
+      a.reason = 'Cuadro de porcentajes de participación: se deriva de otro cuadro y la plataforma lo recalcula, así que no se importa.';
+    }
+    found.push(a);
+  }
+  if (!found.length) return [analyzeSheet(sheet)];
+  return found;
+}
+
+function isPercentTable(a: SheetAnalysis) {
+  const t = normHeader(a.title ?? '');
+  if (has(t, '%', 'particip', 'porcentaje')) return true;
+  const nums: number[] = [];
+  for (let r = a.headerRow + 1; r < Math.min(a.sheet.rows.length, a.headerRow + 12); r++) {
+    const row = a.sheet.rows[r] ?? [];
+    if (row.every((c) => c === null || c === '')) break;
+    for (const c of row) if (typeof c === 'number') nums.push(c);
+  }
+  return nums.length >= 4 && nums.every((n) => n >= 0 && n <= 1.0001);
 }
 
 export function remap(a: SheetAnalysis, kind: ImportKind): SheetAnalysis {
@@ -244,7 +310,7 @@ export interface Issue {
 
 export interface BuildResult {
   kind: ImportKind;
-  records: (MonthlyRecord | ChannelRecord | SocialRecord | SocialPost)[];
+  records: (MonthlyRecord | ChannelRecord | SocialRecord | SocialPost | CostRecord)[];
   issues: Issue[];
   skippedRows: number;
 }
@@ -284,6 +350,18 @@ export function buildRecords(
     if (TOTAL_ROW.test(first) || TOTAL_ROW.test(toText(row[0]))) {
       skippedRows++;
       if (records.length) {
+        for (const sp of specs) {
+          if (sp.kind !== 'number' && sp.kind !== 'money') continue;
+          const fileTotal = toNumber(get(row, sp.key));
+          const sum = (records as unknown as Record<string, unknown>[]).reduce((acc, rec) => acc + (typeof rec[sp.key] === 'number' ? (rec[sp.key] as number) : 0), 0);
+          if (fileTotal !== undefined && sum > 0 && Math.abs(fileTotal - sum) / sum > 0.005) {
+            issues.push({
+              row: excelRow,
+              level: 'warn',
+              msg: `La fila de totales dice ${fileTotal.toLocaleString('es-GT')} en “${a.headers[a.mapping[sp.key]]}”, pero la suma de las filas es ${sum.toLocaleString('es-GT')}. Revisa la fórmula de esa celda; la plataforma usa la suma correcta.`,
+            });
+          }
+        }
         endOfTable(`Fila de totales (“${(first || toText(row[0])).trim()}”): fin de la tabla. Los totales se recalculan en la plataforma.`);
         break;
       }
@@ -361,6 +439,29 @@ export function buildRecords(
       for (const k of ['alcance', 'impresiones', 'reproducciones', 'interacciones', 'seguidores', 'nuevosSeguidores', 'clicsEnlace', 'consultas', 'leads', 'conversiones', 'inversion', 'ingresosAtribuidos'] as const) {
         if (nums[k] !== undefined) rec[k] = nums[k];
       }
+      records.push(rec);
+    } else if (kind === 'costs') {
+      const inversion = nums.inversion;
+      if (inversion === undefined) {
+        skippedRows++;
+        continue;
+      }
+      const canalRaw = toText(get(row, 'canal'));
+      const canal = canalRaw ? normalizeChannel(canalRaw) : null;
+      if (!canal && !period) {
+        skippedRows++;
+        issues.push({ row: excelRow, level: 'warn', msg: 'Costo sin mes ni canal: no se puede asignar. Fila omitida.' });
+        continue;
+      }
+      const rec: CostRecord = {
+        id: `${opts.companyId}:${period ?? 'total'}:${canal ?? 'total'}`,
+        companyId: opts.companyId,
+        period: period ?? null,
+        canal,
+        inversion,
+        concepto: toText(get(row, 'concepto')) || undefined,
+        source,
+      };
       records.push(rec);
     } else {
       const fecha = toDate(get(row, 'fecha'));
@@ -518,6 +619,10 @@ export const TEMPLATES: Record<ImportKind, { headers: string[]; example: (string
   posts: {
     headers: ['Fecha', 'Plataforma', 'Publicación', 'Enlace', 'Tipo', 'Alcance', 'Interacciones', 'Clics', 'Reproducciones'],
     example: ['2026-01-15', 'Instagram', 'Título o descripción breve', 'https://', 'Orgánico', '', '', '', ''],
+  },
+  costs: {
+    headers: ['Mes', 'Canal', 'Inversión (Q)', 'Concepto'],
+    example: ['2026-01', 'Facebook / Instagram', '', 'Pauta pagada'],
   },
 };
 

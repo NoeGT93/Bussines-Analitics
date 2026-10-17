@@ -118,7 +118,26 @@ export interface ImportLogEntry {
   note?: string;
 }
 
-export type ImportKind = 'monthly' | 'channels' | 'social' | 'posts';
+export type ImportKind = 'monthly' | 'channels' | 'social' | 'posts' | 'costs';
+
+/**
+ * Inversión o costo de marketing. `period` null = acumulado del mismo período que los datos por canal.
+ * `canal` null = costo total del mes (no asignado a un canal).
+ */
+export interface CostRecord {
+  id: string;
+  companyId: CompanyId;
+  period: Period | null;
+  canal: string | null;
+  inversion: number;
+  concepto?: string;
+  source: Provenance;
+}
+
+export interface CompanySettings {
+  /** Margen bruto (0–1) para calcular el ROI sobre utilidad en lugar de sobre ingresos */
+  margen?: number;
+}
 
 export interface Dataset {
   version: number;
@@ -128,6 +147,10 @@ export interface Dataset {
   social: SocialRecord[];
   posts: SocialPost[];
   goals: Goal[];
+  costs: CostRecord[];
+  settings: Record<CompanyId, CompanySettings>;
+  /** Versión de los datos base cargados automáticamente */
+  seedVersion?: number;
   log: ImportLogEntry[];
 }
 

@@ -7,6 +7,7 @@ import { Overview } from './pages/Overview';
 import { Social } from './pages/Social';
 import { Sales } from './pages/Sales';
 import { Traffic } from './pages/Traffic';
+import { Roi } from './pages/Roi';
 import { Compare } from './pages/Compare';
 import { Insights } from './pages/Insights';
 import { DataAdmin } from './pages/DataAdmin';
@@ -16,6 +17,7 @@ const PAGES = {
   social: Social,
   sales: Sales,
   traffic: Traffic,
+  roi: Roi,
   compare: Compare,
   insights: Insights,
   data: DataAdmin,

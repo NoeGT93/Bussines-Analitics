@@ -2,9 +2,10 @@ import type { CompanyScope, Dataset, DateRange } from '../types';
 import { channelsFor, METRICS, rowsFor, totalOf, type SeriesMetric } from './metrics';
 import { fmt, pct, pp } from './format';
 import { labelLong, labelRange, previousRange } from './periods';
+import { roiByChannel, roiTotal } from './roi';
 
 export type InsightTone = 'positive' | 'negative' | 'neutral' | 'attention';
-export type InsightCategory = 'Ingresos' | 'Ventas' | 'Ticket' | 'Tráfico' | 'Conversión' | 'Canales' | 'Datos';
+export type InsightCategory = 'Ingresos' | 'Ventas' | 'Ticket' | 'Tráfico' | 'Conversión' | 'Canales' | 'ROI' | 'Datos';
 
 export interface Insight {
   id: string;
@@ -229,6 +230,49 @@ export const rulesProvider: InsightProvider = {
           body: `${fmt(byConv[0].values.ventas)} ventas de ${fmt(byConv[0].values.visitas)} visitas. El canal con menor conversión es ${byConv[byConv.length - 1].canal} (${fmt(byConv[byConv.length - 1].conversion, '%')}).${note}`,
           basis: 'Ventas ÷ visitas por canal. Solo canales con 50 visitas o más.',
           weight: 6,
+        });
+      }
+    }
+
+    // 7b. ROI
+    const rt = roiTotal(ds, scope, range);
+    if (!rt.hasCosts) {
+      out.push({
+        id: 'roi-missing',
+        tone: 'attention',
+        category: 'ROI',
+        title: 'Falta la inversión para calcular el ROI',
+        figure: 'Sin costos',
+        body: 'Los datos no incluyen cuánto se invirtió en publicidad ni en cada canal. Regístralo en la sección ROI y costos para ver el retorno, el costo por venta y el costo por cliente nuevo.',
+        basis: 'ROI = (retorno − inversión) ÷ inversión. Sin inversión no se puede calcular.',
+        weight: 8,
+      });
+    } else {
+      if (rt.roi !== undefined) {
+        out.push({
+          id: 'roi-total',
+          tone: rt.roi >= 0 ? 'positive' : 'negative',
+          category: 'ROI',
+          title: rt.roi >= 0 ? 'La inversión del período se recuperó' : 'La inversión del período no se recuperó',
+          figure: fmt(rt.roi, '%'),
+          body: `Inversión ${fmt(rt.inversion, 'Q')} frente a ingresos de ${fmt(rt.ingresos, 'Q')}. Cada venta costó ${fmt(rt.cpa, 'Q2')} en inversión.`,
+          basis: 'ROI = (retorno − inversión) ÷ inversión; el retorno usa el margen bruto si está definido.',
+          weight: 12,
+        });
+      }
+      const rc = roiByChannel(ds, scope, range).rows.filter((r) => r.roi !== undefined).sort((a, b) => b.roi! - a.roi!);
+      if (rc.length >= 2) {
+        const best = rc[0];
+        const worst = rc[rc.length - 1];
+        out.push({
+          id: 'roi-channels',
+          tone: 'neutral',
+          category: 'ROI',
+          title: `${best.canal} devuelve más por cada quetzal invertido`,
+          figure: fmt(best.roi, '%'),
+          body: `Costo por venta ${fmt(best.cpa, 'Q2')}. El menor retorno es ${worst.canal} (${fmt(worst.roi, '%')}, costo por venta ${fmt(worst.cpa, 'Q2')}).`,
+          basis: 'ROI por canal con los ingresos atribuidos a cada canal en el archivo. Es atribución declarada, no causal.',
+          weight: 11,
         });
       }
     }

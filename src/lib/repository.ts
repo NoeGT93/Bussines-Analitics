@@ -28,7 +28,17 @@ export class LocalStorageRepository implements DataRepository {
       if (!raw) return null;
       const parsed = JSON.parse(raw) as Dataset;
       if (!parsed || !Array.isArray(parsed.monthly)) return null;
-      return parsed;
+      // Compatibilidad con datos guardados por versiones anteriores
+      return {
+        ...parsed,
+        channels: parsed.channels ?? [],
+        social: parsed.social ?? [],
+        posts: parsed.posts ?? [],
+        goals: parsed.goals ?? [],
+        costs: parsed.costs ?? [],
+        settings: parsed.settings ?? {},
+        log: parsed.log ?? [],
+      };
     } catch {
       return null;
     }
