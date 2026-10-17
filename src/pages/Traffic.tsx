@@ -48,11 +48,11 @@ export function Traffic() {
       <PageHeader title="Tráfico y conversiones" description={`${scopeLabel}, ${labelRange(range)}. Cómo llegan los clientes y cuántos terminan comprando.`} />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5">
-        <KpiCard label="Visitas web" help={METRICS.visitas.help} unit="n" value={k.visitas.value} delta={k.visitas.delta} compareLabel={prevLabel} coverage={k.visitas.coverage} spark={k.visitas.spark} color={c.series[0]} />
-        <KpiCard label="Clics" help={METRICS.clics.help} unit="n" value={k.clics.value} delta={k.clics.delta} compareLabel={prevLabel} coverage={k.clics.coverage} spark={k.clics.spark} color={c.series[1]} />
-        <KpiCard label="Consultas" help={METRICS.consultas.help} unit="n" value={k.consultas.value} delta={k.consultas.delta} compareLabel={prevLabel} coverage={k.consultas.coverage} spark={k.consultas.spark} color={c.series[1]} />
-        <KpiCard label="Visitas que consultan" help={METRICS.tasaConsulta.help} unit="%" value={k.tasaConsulta.value} delta={k.tasaConsulta.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.tasaConsulta.coverage} spark={k.tasaConsulta.spark} color={c.series[2]} />
-        <KpiCard label="Conversión" help={METRICS.conversion.help} unit="%" value={k.conversion.value} delta={k.conversion.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.conversion.coverage} spark={k.conversion.spark} color={c.series[2]} />
+        <KpiCard label="Visitas web" help={METRICS.visitas.help} unit="n" value={k.visitas.value} delta={k.visitas.delta} compareLabel={prevLabel} coverage={k.visitas.coverage} spark={k.visitas.spark} sparkPeriods={k.visitas.sparkPeriods} color={c.series[0]} />
+        <KpiCard label="Clics" help={METRICS.clics.help} unit="n" value={k.clics.value} delta={k.clics.delta} compareLabel={prevLabel} coverage={k.clics.coverage} spark={k.clics.spark} sparkPeriods={k.clics.sparkPeriods} color={c.series[1]} />
+        <KpiCard label="Consultas" help={METRICS.consultas.help} unit="n" value={k.consultas.value} delta={k.consultas.delta} compareLabel={prevLabel} coverage={k.consultas.coverage} spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods} color={c.series[1]} />
+        <KpiCard label="Visitas que consultan" help={METRICS.tasaConsulta.help} unit="%" value={k.tasaConsulta.value} delta={k.tasaConsulta.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.tasaConsulta.coverage} spark={k.tasaConsulta.spark} sparkPeriods={k.tasaConsulta.sparkPeriods} color={c.series[2]} />
+        <KpiCard label="Conversión" help={METRICS.conversion.help} unit="%" value={k.conversion.value} delta={k.conversion.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.conversion.coverage} spark={k.conversion.spark} sparkPeriods={k.conversion.sparkPeriods} color={c.series[2]} />
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-5">

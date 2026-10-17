@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { AnimatedNumber, Card, cx, Delta, InfoTip } from '../ui';
-import { Sparkline } from '../charts/Charts';
+import { Sparkline, useSparkIndex } from '../charts/Charts';
+import { fmt, pct, pp } from '../../lib/format';
+import { labelShort } from '../../lib/periods';
 import type { Unit } from '../../lib/format';
 
 export interface KpiCardProps {
@@ -13,6 +16,7 @@ export interface KpiCardProps {
   deltaKind?: 'rel' | 'pp';
   compareLabel?: string;
   spark?: (number | null)[];
+  sparkPeriods?: string[];
   color: string;
   icon?: ReactNode;
   secondary?: ReactNode;
@@ -22,7 +26,40 @@ export interface KpiCardProps {
   higherIsBetter?: boolean;
 }
 
+function LiveReadout({ spark, periods, unit }: { spark: (number | null)[]; periods: string[]; unit: Unit }) {
+  const si = useSparkIndex(spark);
+  if (!si || !si.live) return null;
+  const v = spark[si.dataIndex]!;
+  const prev = si.prevIndex !== null ? spark[si.prevIndex] : null;
+  const isRate = unit === '%';
+  const d = prev !== null && prev !== undefined ? (isRate ? v - prev : prev ? (v - prev) / Math.abs(prev) : undefined) : undefined;
+  const up = d !== undefined && d > 0.0005;
+  const down = d !== undefined && d < -0.0005;
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      <motion.span
+        key={si.dataIndex}
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -10, opacity: 0 }}
+        transition={{ duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
+        className="tnum flex items-center gap-1 whitespace-nowrap text-[11px] sm:gap-1.5 sm:text-[11.5px]"
+      >
+        <span className="text-faint">{labelShort(periods[si.dataIndex])}</span>
+        <span className="font-medium text-muted">{fmt(v, unit)}</span>
+        {d !== undefined && (
+          <span className={up ? 'text-up' : down ? 'text-down' : 'text-faint'}>
+            {up ? '▲' : down ? '▼' : '■'} {isRate ? pp(Math.abs(d)).replace('+', '') : pct(Math.abs(d)).replace('+', '')}
+          </span>
+        )}
+      </motion.span>
+    </AnimatePresence>
+  );
+}
+
 export function KpiCard(p: KpiCardProps) {
+  const si = useSparkIndex(p.spark ?? []);
+  const showLive = !!(si?.live && p.sparkPeriods && p.spark && p.value !== undefined);
   const partial = p.coverage && p.coverage.have > 0 && p.coverage.have < p.coverage.total;
   const empty = p.value === undefined;
   const Inner = (
@@ -41,8 +78,8 @@ export function KpiCard(p: KpiCardProps) {
         ) : (
           <AnimatedNumber value={p.value} unit={p.unit} className="block whitespace-nowrap text-[19px] font-semibold leading-[26px] sm:text-[24px] tracking-[-0.02em] text-ink" />
         )}
-        <div className="mt-1.5 truncate text-[11.5px] text-faint">
-          {empty ? '\u00a0' : p.secondary ?? (p.delta !== undefined ? p.compareLabel : partial ? `${p.coverage!.have} de ${p.coverage!.total} meses con dato` : 'Sin período anterior comparable')}
+        <div className="mt-1.5 h-[18px] overflow-hidden text-[11.5px] text-faint">
+          {showLive ? <LiveReadout spark={p.spark!} periods={p.sparkPeriods!} unit={p.unit} /> : <span className="block truncate">{empty ? '\u00a0' : p.secondary ?? (p.delta !== undefined ? p.compareLabel : partial ? `${p.coverage!.have} de ${p.coverage!.total} meses con dato` : 'Sin período anterior comparable')}</span>}
         </div>
       </div>
       <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline data={p.spark} color={p.color} height={30} />}</div>

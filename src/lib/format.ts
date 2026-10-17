@@ -1,7 +1,8 @@
 const nf0 = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
-const qf = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 0 });
-const qf2 = new Intl.NumberFormat('es-GT', { style: 'currency', currency: 'GTQ', maximumFractionDigits: 2, minimumFractionDigits: 2 });
+// El símbolo se arma a mano: algunos navegadores (Android) muestran "GTQ" en lugar de "Q"
+const nf2 = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+const money = (v: number, f: Intl.NumberFormat) => `${v < 0 ? '−' : ''}Q ${f.format(Math.abs(v))}`;
 
 export type Unit = 'Q' | 'n' | '%' | 'Q2';
 
@@ -9,9 +10,9 @@ export function fmt(value: number | undefined | null, unit: Unit = 'n'): string 
   if (value === undefined || value === null || Number.isNaN(value)) return '—';
   switch (unit) {
     case 'Q':
-      return qf.format(value);
+      return money(value, nf0);
     case 'Q2':
-      return qf2.format(value);
+      return money(value, nf2);
     case '%':
       return `${nf1.format(value * 100)} %`;
     default:

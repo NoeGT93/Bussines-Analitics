@@ -62,7 +62,7 @@ export function Overview() {
           delta={k.ingresos.delta}
           compareLabel={prevLabel}
           coverage={k.ingresos.coverage}
-          spark={k.ingresos.spark}
+          spark={k.ingresos.spark} sparkPeriods={k.ingresos.sparkPeriods}
           color={c.series[0]}
           onOpen={() => setPage('sales')}
         />
@@ -75,7 +75,7 @@ export function Overview() {
           delta={k.ventas.delta}
           compareLabel={prevLabel}
           coverage={k.ventas.coverage}
-          spark={k.ventas.spark}
+          spark={k.ventas.spark} sparkPeriods={k.ventas.sparkPeriods}
           color={c.series[0]}
           onOpen={() => setPage('sales')}
         />
@@ -88,7 +88,7 @@ export function Overview() {
           delta={k.visitas.delta}
           compareLabel={prevLabel}
           coverage={k.visitas.coverage}
-          spark={k.visitas.spark}
+          spark={k.visitas.spark} sparkPeriods={k.visitas.sparkPeriods}
           color={c.series[1]}
           onOpen={() => setPage('traffic')}
         />
@@ -102,7 +102,7 @@ export function Overview() {
             delta={k.clics.delta}
             compareLabel={prevLabel}
             coverage={k.clics.coverage}
-            spark={k.clics.spark}
+            spark={k.clics.spark} sparkPeriods={k.clics.sparkPeriods}
             color={c.series[1]}
             onOpen={() => setPage('traffic')}
           />
@@ -117,7 +117,7 @@ export function Overview() {
             secondary={k.clics.value !== undefined ? `${fmt(k.clics.value)} clics en el período` : undefined}
             compareLabel={prevLabel}
             coverage={k.consultas.coverage}
-            spark={k.consultas.spark}
+            spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods}
             color={c.series[1]}
             onOpen={() => setPage('traffic')}
           />
@@ -132,7 +132,7 @@ export function Overview() {
           deltaKind="pp"
           compareLabel={prevLabel}
           coverage={k.conversion.coverage}
-          spark={k.conversion.spark}
+          spark={k.conversion.spark} sparkPeriods={k.conversion.sparkPeriods}
           color={c.series[2]}
           onOpen={() => setPage('traffic')}
         />
@@ -145,7 +145,7 @@ export function Overview() {
           delta={k.ticket.delta}
           compareLabel={prevLabel}
           coverage={k.ticket.coverage}
-          spark={k.ticket.spark}
+          spark={k.ticket.spark} sparkPeriods={k.ticket.sparkPeriods}
           color={c.series[2]}
           onOpen={() => setPage('sales')}
         />
@@ -158,7 +158,7 @@ export function Overview() {
           delta={k.clientesNuevos.delta}
           compareLabel={prevLabel}
           coverage={k.clientesNuevos.coverage}
-          spark={k.clientesNuevos.spark}
+          spark={k.clientesNuevos.spark} sparkPeriods={k.clientesNuevos.sparkPeriods}
           color={c.series[3]}
           onOpen={() => setPage('sales')}
         />

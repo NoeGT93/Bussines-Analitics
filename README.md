@@ -24,6 +24,16 @@ Al subir a la rama `main`, el flujo `.github/workflows/deploy.yml` publica la ap
 | Hallazgos | Reglas analíticas transparentes, cada una con su método de cálculo |
 | Gestión de datos | Importación Excel/CSV con mapeo de columnas y validación, edición de registros, empresas, respaldo y almacenamiento |
 
+## Animación continua
+
+Al estilo de un tablero de bolsa, sin inventar datos: todo recorre los puntos que ya existen.
+
+- **Cinta de indicadores** bajo el encabezado: último mes con datos frente al anterior (▲ ▼) y reparto de ventas por canal. Se detiene al pasar el cursor; cada elemento abre el detalle del mes.
+- **Sparklines vivos**: un destello recorre cada curva y un punto avanza mes a mes; la tarjeta muestra el mes, su valor y la variación.
+- **Gráfico principal**: un cursor recorre los meses y un tablero superior muestra los valores. Se pausa mientras exploras el gráfico.
+
+Se activa o pausa en Configuración → Animación continua, y se apaga sola si el sistema pide reducir movimiento o la pestaña no está visible. El reloj compartido está en `src/lib/live.ts`.
+
 ## Definiciones
 
 - **Conversión** = ventas ÷ visitas web

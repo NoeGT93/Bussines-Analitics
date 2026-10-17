@@ -90,3 +90,44 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Cinta de indicadores tipo bolsa */
+@keyframes ba-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ba-marquee {
+  animation: ba-marquee var(--ba-marquee-duration, 45s) linear infinite;
+  will-change: transform;
+}
+.ba-marquee-wrap:hover .ba-marquee {
+  animation-play-state: paused;
+}
+@keyframes ba-ping {
+  0% { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+.ba-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ba-ping 1.6s ease-out infinite;
+}
+.ba-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: ba-ping 1.6s ease-out infinite;
+}
+
+/* Destello que recorre las líneas del gráfico principal */
+@keyframes ba-comet {
+  from { stroke-dashoffset: 60; }
+  to { stroke-dashoffset: -1600; }
+}
+.ba-comet path.recharts-curve {
+  stroke-dasharray: 60 2400;
+  animation: ba-comet 3.6s linear infinite;
+  filter: drop-shadow(0 0 3px currentColor);
+}

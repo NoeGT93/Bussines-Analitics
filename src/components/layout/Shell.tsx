@@ -23,8 +23,10 @@ import {
   TableProperties,
   X,
   LayoutDashboard,
+  Activity,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import { MarketTicker } from './Ticker';
 import { availableRange, hasDemo, useStore, type PageId } from '../../store/useStore';
 import { Button, cx, MenuItem, Popover, Tag } from '../ui';
 import { labelLong, labelRange, monthsBetween, shift } from '../../lib/periods';
@@ -364,7 +366,7 @@ function ExportMenu() {
 
 /* Configuración ------------------------------------------------------------ */
 function SettingsMenu() {
-  const { theme, toggleTheme, setPage } = useStore();
+  const { theme, toggleTheme, setPage, liveMotion, toggleLive } = useStore();
   return (
     <Popover
       width={230}
@@ -378,6 +380,9 @@ function SettingsMenu() {
         <>
           <MenuItem icon={theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />} onClick={() => (toggleTheme(), close())}>
             {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+          </MenuItem>
+          <MenuItem icon={<Activity size={15} />} hint={liveMotion ? 'Activada' : 'Pausada'} onClick={() => toggleLive()}>
+            Animación continua
           </MenuItem>
           <MenuItem icon={<Database size={15} />} onClick={() => (setPage('data'), close())}>
             Datos, empresas y metas
@@ -422,6 +427,7 @@ export function Header() {
         <RangePicker />
         {demo && <Tag tone="warn">Cifras demostrativas</Tag>}
       </div>
+      <MarketTicker />
     </header>
   );
 }

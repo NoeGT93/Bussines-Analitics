@@ -67,10 +67,10 @@ export function Sales() {
       <PageHeader title="Ventas" description={`${scopeLabel}, ${labelRange(range)}. Montos en quetzales.`} />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-        <KpiCard label="Ingresos" help={METRICS.ingresos.help} unit="Q" value={k.ingresos.value} delta={k.ingresos.delta} compareLabel={prevLabel} coverage={k.ingresos.coverage} spark={k.ingresos.spark} color={c.series[0]} />
-        <KpiCard label="Ventas" help={METRICS.ventas.help} unit="n" value={k.ventas.value} delta={k.ventas.delta} compareLabel={prevLabel} coverage={k.ventas.coverage} spark={k.ventas.spark} color={c.series[0]} />
-        <KpiCard label="Ticket promedio" help={METRICS.ticket.help} unit="Q2" value={k.ticket.value} delta={k.ticket.delta} compareLabel={prevLabel} coverage={k.ticket.coverage} spark={k.ticket.spark} color={c.series[2]} />
-        <KpiCard label="Clientes nuevos" help={METRICS.clientesNuevos.help} unit="n" value={k.clientesNuevos.value} delta={k.clientesNuevos.delta} compareLabel={prevLabel} coverage={k.clientesNuevos.coverage} spark={k.clientesNuevos.spark} color={c.series[3]} />
+        <KpiCard label="Ingresos" help={METRICS.ingresos.help} unit="Q" value={k.ingresos.value} delta={k.ingresos.delta} compareLabel={prevLabel} coverage={k.ingresos.coverage} spark={k.ingresos.spark} sparkPeriods={k.ingresos.sparkPeriods} color={c.series[0]} />
+        <KpiCard label="Ventas" help={METRICS.ventas.help} unit="n" value={k.ventas.value} delta={k.ventas.delta} compareLabel={prevLabel} coverage={k.ventas.coverage} spark={k.ventas.spark} sparkPeriods={k.ventas.sparkPeriods} color={c.series[0]} />
+        <KpiCard label="Ticket promedio" help={METRICS.ticket.help} unit="Q2" value={k.ticket.value} delta={k.ticket.delta} compareLabel={prevLabel} coverage={k.ticket.coverage} spark={k.ticket.spark} sparkPeriods={k.ticket.sparkPeriods} color={c.series[2]} />
+        <KpiCard label="Clientes nuevos" help={METRICS.clientesNuevos.help} unit="n" value={k.clientesNuevos.value} delta={k.clientesNuevos.delta} compareLabel={prevLabel} coverage={k.clientesNuevos.coverage} spark={k.clientesNuevos.spark} sparkPeriods={k.clientesNuevos.sparkPeriods} color={c.series[3]} />
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">

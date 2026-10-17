@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLiveTick } from '../../lib/live';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Area,
   Brush,
@@ -9,6 +10,8 @@ import {
   Line,
   Pie,
   PieChart,
+  ReferenceDot,
+  ReferenceLine,
   ResponsiveContainer,
   Sector,
   Tooltip,
@@ -24,52 +27,122 @@ import { axisProps, ChartTip, SeriesToggle, useAnimDuration, useChartColors, typ
 import { Button, cx } from '../ui';
 
 /* Sparkline ----------------------------------------------------------- */
+/**
+ * Minigráfico en vivo: se dibuja a su tamaño real (sin deformar puntos), un destello
+ * recorre la curva de forma continua y un punto salta de mes en mes al ritmo del reloj
+ * compartido. `activeIndex` permite que la tarjeta muestre el mismo dato en texto.
+ */
 export function Sparkline({ data, color, height = 34, className }: { data: (number | null)[]; color: string; height?: number; className?: string }) {
   const reduce = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const [w, setW] = useState(0);
+  const [len, setLen] = useState(0);
+  const tick = useLiveTick();
+  const gid = `sp-${useId().replace(/:/g, '')}`;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const pts = data.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null);
-  if (pts.length < 2) return <div style={{ height }} className={className} />;
-  const W = 120;
   const H = height;
+  const pad = 4;
   const min = Math.min(...pts.map((p) => p.v));
   const max = Math.max(...pts.map((p) => p.v));
   const span = max - min || 1;
-  const x = (i: number) => (i / (data.length - 1)) * W;
-  const y = (v: number) => H - 3 - ((v - min) / span) * (H - 6);
-  // Curva suave (Catmull-Rom → Bézier)
+  const x = (i: number) => pad + (i / Math.max(1, data.length - 1)) * (w - pad * 2);
+  const y = (v: number) => H - pad - ((v - min) / span) * (H - pad * 2);
   const P = pts.map((p) => [x(p.i), y(p.v)]);
-  let d = `M${P[0][0]},${P[0][1]}`;
+  let d = P.length ? `M${P[0][0]},${P[0][1]}` : '';
   for (let i = 0; i < P.length - 1; i++) {
     const p0 = P[i - 1] ?? P[i];
     const p1 = P[i];
     const p2 = P[i + 1];
     const p3 = P[i + 2] ?? p2;
-    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
-    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-    d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`;
+    d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2[0]},${p2[1]}`;
   }
-  const last = P[P.length - 1];
-  const gid = `sp-${color.replace(/[^a-z0-9]/gi, '')}`;
+  useLayoutEffect(() => {
+    if (pathRef.current) setLen(pathRef.current.getTotalLength());
+  }, [d]);
+
+  if (pts.length < 2) return <div ref={ref} style={{ height }} className={className} />;
+  const live = tick !== null;
+  const idx = live ? tick % P.length : P.length - 1;
+  const [cx0, cy0] = P[idx];
+  const seg = Math.max(18, len * 0.22);
+
   return (
-    <motion.svg
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      className={cx('w-full overflow-visible', className)}
-      style={{ height }}
-      aria-hidden
-      initial={reduce ? false : { clipPath: 'inset(0 100% 0 0)' }}
-      animate={{ clipPath: 'inset(0 0% 0 0)' }}
-      transition={{ duration: 0.7, ease: [0.2, 0.7, 0.2, 1] }}
-    >
-      <defs>
-        <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.16" />
-          <stop offset="1" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${d} L${last[0]},${H} L${P[0][0]},${H} Z`} fill={`url(#${gid})`} />
-      <path d={d} fill="none" stroke={color} strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeLinecap="round" />
-    </motion.svg>
+    <div ref={ref} className={cx('relative w-full', className)} style={{ height }} aria-hidden>
+      {w > 0 && (
+        <motion.svg
+          width={w}
+          height={H}
+          className="overflow-visible"
+          initial={reduce ? false : { clipPath: 'inset(0 100% 0 0)' }}
+          animate={{ clipPath: 'inset(0 0% 0 0)' }}
+          transition={{ duration: 0.7, ease: [0.2, 0.7, 0.2, 1] }}
+        >
+          <defs>
+            <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor={color} stopOpacity="0.18" />
+              <stop offset="1" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+            <filter id={`${gid}-glow`} x="-20%" y="-50%" width="140%" height="200%">
+              <feGaussianBlur stdDeviation="1.6" />
+            </filter>
+          </defs>
+          <path d={`${d} L${P[P.length - 1][0]},${H} L${P[0][0]},${H} Z`} fill={`url(#${gid})`} />
+          <path ref={pathRef} d={d} fill="none" stroke={color} strokeOpacity={live ? 0.75 : 1} strokeWidth={1.6} strokeLinecap="round" />
+          {live && len > 0 && (
+            <>
+              {/* destello que recorre la curva sin parar */}
+              <motion.path
+                d={d}
+                fill="none"
+                stroke={color}
+                strokeWidth={3.2}
+                strokeLinecap="round"
+                filter={`url(#${gid}-glow)`}
+                strokeDasharray={`${seg} ${len + seg}`}
+                initial={{ strokeDashoffset: seg }}
+                animate={{ strokeDashoffset: -len }}
+                transition={{ duration: 2.6, ease: 'linear', repeat: Infinity, repeatDelay: 0.4 }}
+              />
+              <motion.path
+                d={d}
+                fill="none"
+                stroke={color}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeDasharray={`${seg} ${len + seg}`}
+                initial={{ strokeDashoffset: seg }}
+                animate={{ strokeDashoffset: -len }}
+                transition={{ duration: 2.6, ease: 'linear', repeat: Infinity, repeatDelay: 0.4 }}
+              />
+            </>
+          )}
+          {live && <motion.line y1={0} y2={H} stroke={color} strokeOpacity={0.18} strokeDasharray="2 3" animate={{ x1: cx0, x2: cx0 }} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }} />}
+          <motion.g animate={{ x: cx0, y: cy0 }} initial={false} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }}>
+            {live && <circle r={3} fill={color} className="ba-ping" />}
+            <circle r={2.6} fill={color} stroke="rgb(var(--surface))" strokeWidth={1.4} />
+          </motion.g>
+        </motion.svg>
+      )}
+    </div>
   );
+}
+
+/** Índice del punto que el sparkline está mostrando, para sincronizar textos */
+export function useSparkIndex(data: (number | null)[]) {
+  const tick = useLiveTick();
+  const pts = data.map((v, i) => ({ v, i })).filter((p) => p.v !== null);
+  if (!pts.length) return null;
+  const k = tick !== null ? tick % pts.length : pts.length - 1;
+  return { dataIndex: pts[k].i, live: tick !== null, prevIndex: k > 0 ? pts[k - 1].i : null };
 }
 
 /* Tendencia principal -------------------------------------------------- */
@@ -97,6 +170,9 @@ export function TrendChart({
   const [active, setActive] = useState<Set<string>>(new Set(initial));
   const [compare, setCompare] = useState(false);
   const [brush, setBrush] = useState<{ start: number; end: number } | null>(null);
+  const [hover, setHover] = useState(false);
+  const touchTimer = useRef<number>();
+  const tick = useLiveTick();
   const colorOf = (m: SeriesMetric) => c.series[metrics.indexOf(m) % c.series.length];
 
   const data = useMemo(
@@ -130,6 +206,11 @@ export function TrendChart({
 
   if (!available.length) return null;
 
+  // Recorrido automático: un cursor avanza mes a mes mientras nadie interactúa con el gráfico
+  const scanRows = rows.map((r, i) => ({ r, i })).filter(({ r }) => shown.some((m) => r.values[m] !== undefined));
+  const scan = tick !== null && !hover && scanRows.length ? scanRows[tick % scanRows.length] : null;
+  const scanPrev = scan ? rows[scan.i - 1] : undefined;
+
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-2" data-noexport="1">
@@ -155,7 +236,51 @@ export function TrendChart({
           )}
         </div>
       </div>
-      <div style={{ height }} className="w-full">
+      {tick !== null && (
+        <div className="mb-1 flex h-6 items-center gap-3 overflow-hidden px-2 text-[12px]" aria-live="off">
+          <span className={cx('relative h-1.5 w-1.5 shrink-0 rounded-full', hover ? 'bg-faint' : 'ba-live-dot bg-electric')} />
+          <AnimatePresence mode="popLayout" initial={false}>
+            {scan && (
+              <motion.div
+                key={scan.r.period}
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -12, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
+                className="tnum flex min-w-0 items-center gap-4 whitespace-nowrap"
+              >
+                <span className="font-medium text-ink">{labelLong(scan.r.period)}</span>
+                {shown.map((m) => {
+                  const v = scan.r.values[m];
+                  const p = scanPrev?.values[m];
+                  const d = v !== undefined && p ? (v - p) / Math.abs(p) : undefined;
+                  return (
+                    <span key={m} className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full" style={{ background: colorOf(m) }} />
+                      <span className="text-ink">{fmt(v, METRICS[m].unit)}</span>
+                      {d !== undefined && (
+                        <span className={d > 0.0005 ? 'text-up' : d < -0.0005 ? 'text-down' : 'text-faint'}>
+                          {d > 0.0005 ? '▲' : d < -0.0005 ? '▼' : '■'} {pct(Math.abs(d)).replace('+', '')}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </motion.div>
+            )}
+            {!scan && (
+              <motion.span key="paused" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-faint">
+                Recorrido en pausa mientras exploras el gráfico
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+      <div style={{ height }} className="w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onTouchStart={() => {
+          setHover(true);
+          window.clearTimeout(touchTimer.current);
+          touchTimer.current = window.setTimeout(() => setHover(false), 6000);
+        }}>
         <ResponsiveContainer>
           <ComposedChart
             data={data}
@@ -228,6 +353,40 @@ export function TrendChart({
               };
               return i === 0 ? <Area {...common} fill={`url(#g-${m})`} /> : <Line {...common} />;
             })}
+            {tick !== null &&
+              shown.map((m) => (
+                <Line
+                  key={`comet_${m}`}
+                  yAxisId={leftIsMoney ? (money.includes(m) ? 'left' : 'right') : 'left'}
+                  dataKey={m}
+                  type="monotone"
+                  stroke={colorOf(m)}
+                  strokeWidth={3}
+                  dot={false}
+                  activeDot={false}
+                  isAnimationActive={false}
+                  className="ba-comet"
+                  style={{ color: colorOf(m) }}
+                  legendType="none"
+                  tooltipType="none"
+                />
+              ))}
+            {scan && <ReferenceLine yAxisId="left" x={scan.r.period} stroke={c.faint} strokeDasharray="3 4" ifOverflow="extendDomain" />}
+            {scan &&
+              shown.map((m) =>
+                scan.r.values[m] !== undefined ? (
+                  <ReferenceDot
+                    key={`scan_${m}`}
+                    yAxisId={leftIsMoney ? (money.includes(m) ? 'left' : 'right') : 'left'}
+                    x={scan.r.period}
+                    y={scan.r.values[m]}
+                    r={5}
+                    fill={colorOf(m)}
+                    stroke={c.surface}
+                    strokeWidth={2}
+                  />
+                ) : null,
+              )}
             {compare &&
               shown.map((m) => (
                 <Line

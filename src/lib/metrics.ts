@@ -170,6 +170,7 @@ export interface KpiResult {
   coverage: Total['coverage'];
   prevCoverage: Total['coverage'];
   spark: (number | null)[];
+  sparkPeriods: Period[];
 }
 
 export function kpi(ds: Dataset, scope: CompanyScope, range: DateRange, metric: SeriesMetric): KpiResult {
@@ -195,6 +196,7 @@ export function kpi(ds: Dataset, scope: CompanyScope, range: DateRange, metric: 
     coverage: cur.coverage,
     prevCoverage: prev.coverage,
     spark: sparkRows.map((r) => r.values[metric] ?? null),
+    sparkPeriods: sparkRows.map((r) => r.period),
   };
 }
 

@@ -32,6 +32,7 @@ interface UiState {
   rangePreset: string;
   theme: 'light' | 'dark';
   sidebarCollapsed: boolean;
+  liveMotion: boolean;
   mobileNav: boolean;
   detail: DetailTarget | null;
   toast: { id: number; text: string; tone: 'ok' | 'error' | 'info' } | null;
@@ -45,6 +46,7 @@ interface Actions {
   setRange(r: DateRange, preset?: string): void;
   toggleTheme(): void;
   toggleSidebar(): void;
+  toggleLive(): void;
   setMobileNav(v: boolean): void;
   openDetail(d: DetailTarget | null): void;
   notify(text: string, tone?: 'ok' | 'error' | 'info'): void;
@@ -144,6 +146,7 @@ export const useStore = create<Store>((set, get) => {
     rangePreset: 'all',
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     sidebarCollapsed: !!prefs.sidebarCollapsed,
+    liveMotion: prefs.liveMotion ?? true,
     mobileNav: false,
     detail: null,
     toast: null,
@@ -165,6 +168,7 @@ export const useStore = create<Store>((set, get) => {
       set({ theme });
     },
     toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+    toggleLive: () => set((s) => ({ liveMotion: !s.liveMotion })),
     setMobileNav: (mobileNav) => set({ mobileNav }),
     openDetail: (detail) => set({ detail }),
     notify: (text, tone = 'ok') => set({ toast: { id: ++toastId, text, tone } }),
@@ -254,9 +258,9 @@ useStore.subscribe((s, prev) => {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => activeRepository.save(s.ds), 150);
   }
-  if (s.page !== prev.page || s.scope !== prev.scope || s.sidebarCollapsed !== prev.sidebarCollapsed) {
+  if (s.page !== prev.page || s.scope !== prev.scope || s.sidebarCollapsed !== prev.sidebarCollapsed || s.liveMotion !== prev.liveMotion) {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ page: s.page, scope: s.scope, sidebarCollapsed: s.sidebarCollapsed }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ page: s.page, scope: s.scope, sidebarCollapsed: s.sidebarCollapsed, liveMotion: s.liveMotion }));
     } catch {
       /* noop */
     }
