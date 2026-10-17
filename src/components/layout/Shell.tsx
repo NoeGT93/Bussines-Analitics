@@ -328,7 +328,7 @@ function ExportMenu() {
     const node = document.querySelector<HTMLElement>('[data-report-chart]');
     if (node) {
       try {
-        img = await toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff', filter: (n) => !(n as HTMLElement).dataset?.noexport });
+        img = await toPng(node, { skipFonts: true, pixelRatio: 2, backgroundColor: '#ffffff', filter: (n) => !(n as HTMLElement).dataset?.noexport });
       } catch {
         img = undefined;
       }

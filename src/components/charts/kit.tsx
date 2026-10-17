@@ -130,7 +130,7 @@ export function ChartCard({
     if (!ref.current) return;
     try {
       const bg = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
-      const data = await toPng(ref.current, { pixelRatio: 2, backgroundColor: `rgb(${bg.split(' ').join(',')})`, filter: (n) => !(n as HTMLElement).dataset?.noexport });
+      const data = await toPng(ref.current, { skipFonts: true, pixelRatio: 2, backgroundColor: `rgb(${bg.split(' ').join(',')})`, filter: (n) => !(n as HTMLElement).dataset?.noexport });
       const blob = await (await fetch(data)).blob();
       download(blob, `${exportName ?? 'grafico'}.png`);
     } catch {

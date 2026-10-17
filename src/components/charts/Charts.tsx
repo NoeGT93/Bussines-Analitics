@@ -127,7 +127,7 @@ export function Sparkline({ data, periods, color, height = 34, className }: { da
               />
             </>
           )}
-          {<motion.line y1={0} y2={H} stroke={color} strokeOpacity={0.18} strokeDasharray="2 3" animate={{ x1: cx0, x2: cx0 }} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }} />}
+          {<motion.line x1={cx0} x2={cx0} initial={false} y1={0} y2={H} stroke={color} strokeOpacity={0.18} strokeDasharray="2 3" animate={{ x1: cx0, x2: cx0 }} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }} />}
           <motion.g animate={{ x: cx0, y: cy0 }} initial={false} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }}>
             {live && <circle r={3} fill={color} className="ba-ping" />}
             <circle r={2.6} fill={color} stroke="rgb(var(--surface))" strokeWidth={1.4} />

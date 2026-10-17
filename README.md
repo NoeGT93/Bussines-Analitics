@@ -2,12 +2,17 @@
 
 Plataforma web de Business Intelligence para analizar ventas, tráfico digital, conversiones, clientes y redes sociales de **Copicentro OVNI** y **Construex Guatemala**.
 
+## Subir a GitHub
+
+Doble clic en `subir-a-github.bat` (Windows) o ejecuta `./subir-a-github.sh` (Mac/Linux). Git abrirá el navegador para iniciar sesión la primera vez.
+
 ## Inicio rápido
 
 ```bash
 npm install
 npm run dev        # entorno local en http://localhost:5173
-npm run build      # versión de producción en /dist
+npm run build      # versión de producción en /dist (GitHub Pages)
+npm run build:single  # un solo HTML liviano; las librerías se cargan desde CDN con versión fija
 ```
 
 Al subir a la rama `main`, el flujo `.github/workflows/deploy.yml` publica la aplicación en GitHub Pages. Actívalo una vez en **Settings → Pages → Source: GitHub Actions**.
