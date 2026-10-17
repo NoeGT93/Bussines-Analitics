@@ -27,8 +27,8 @@ export interface KpiCardProps {
 }
 
 function LiveReadout({ spark, periods, unit }: { spark: (number | null)[]; periods: string[]; unit: Unit }) {
-  const si = useSparkIndex(spark);
-  if (!si || !si.live) return null;
+  const si = useSparkIndex(spark, periods);
+  if (!si) return null;
   const v = spark[si.dataIndex]!;
   const prev = si.prevIndex !== null ? spark[si.prevIndex] : null;
   const isRate = unit === '%';
@@ -58,8 +58,7 @@ function LiveReadout({ spark, periods, unit }: { spark: (number | null)[]; perio
 }
 
 export function KpiCard(p: KpiCardProps) {
-  const si = useSparkIndex(p.spark ?? []);
-  const showLive = !!(si?.live && p.sparkPeriods && p.spark && p.value !== undefined);
+  const showLive = !!(p.sparkPeriods && p.spark && p.value !== undefined && p.spark.some((v) => v !== null));
   const partial = p.coverage && p.coverage.have > 0 && p.coverage.have < p.coverage.total;
   const empty = p.value === undefined;
   const Inner = (
@@ -82,7 +81,7 @@ export function KpiCard(p: KpiCardProps) {
           {showLive ? <LiveReadout spark={p.spark!} periods={p.sparkPeriods!} unit={p.unit} /> : <span className="block truncate">{empty ? '\u00a0' : p.secondary ?? (p.delta !== undefined ? p.compareLabel : partial ? `${p.coverage!.have} de ${p.coverage!.total} meses con dato` : 'Sin período anterior comparable')}</span>}
         </div>
       </div>
-      <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline data={p.spark} color={p.color} height={30} />}</div>
+      <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline data={p.spark} periods={p.sparkPeriods} color={p.color} height={30} />}</div>
     </>
   );
   return (

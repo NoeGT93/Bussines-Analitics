@@ -1,33 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useReducedMotion } from 'framer-motion';
-import { useStore } from '../store/useStore';
+import { dataMonths, resolveCursor, useStore } from '../store/useStore';
+import type { Period } from '../types';
 
 /**
- * Reloj compartido para las animaciones continuas: todas las tarjetas y gráficos
- * avanzan al mismo ritmo, como un tablero de bolsa. Se detiene si la pestaña no está
- * visible, si la persona desactiva la animación o si el sistema pide reducir movimiento.
- * No genera datos: solo recorre los puntos que ya existen.
+ * Recorrido mes a mes, controlado por la persona.
+ * Un solo cursor (el mes seleccionado) sincroniza la cinta, las tarjetas y el gráfico principal.
+ * Avanza solo únicamente si se pulsa reproducir; si no, se mueve con los botones o con las flechas del teclado.
+ * Los destellos decorativos dependen de la preferencia "Animación continua" y del sistema (reducir movimiento).
  */
-export const LIVE_STEP_MS = 1800;
-
-const listeners = new Set<(n: number) => void>();
-let tick = 0;
-let timer: number | undefined;
-
-function start() {
-  if (timer !== undefined) return;
-  timer = window.setInterval(() => {
-    if (document.hidden) return;
-    tick++;
-    listeners.forEach((l) => l(tick));
-  }, LIVE_STEP_MS);
-}
-
-function stop() {
-  if (listeners.size || timer === undefined) return;
-  window.clearInterval(timer);
-  timer = undefined;
-}
+export const PLAY_STEP_MS = 1800;
 
 export function useLiveEnabled() {
   const pref = useStore((s) => s.liveMotion);
@@ -35,18 +17,41 @@ export function useLiveEnabled() {
   return pref && !reduce;
 }
 
-/** Devuelve el pulso actual, o null si la animación continua está apagada */
-export function useLiveTick(): number | null {
-  const live = useLiveEnabled();
-  const [t, setT] = useState(tick);
+/** Mes activo del recorrido, resuelto contra los meses con datos */
+export function useCursor(): { period: Period | null; months: Period[]; index: number } {
+  const ds = useStore((s) => s.ds);
+  const scope = useStore((s) => s.scope);
+  const range = useStore((s) => s.range);
+  const cursor = useStore((s) => s.cursor);
+  return useMemo(() => {
+    const months = dataMonths(ds, scope, range);
+    if (!months.length) return { period: null, months, index: -1 };
+    const period = resolveCursor(months, cursor);
+    return { period, months, index: months.indexOf(period) };
+  }, [ds, scope, range, cursor]);
+}
+
+/** Se monta una vez: reproduce cuando corresponde y atiende las flechas del teclado */
+export function PlaybackClock() {
+  const playing = useStore((s) => s.playing);
+  const stepCursor = useStore((s) => s.stepCursor);
   useEffect(() => {
-    if (!live) return;
-    listeners.add(setT);
-    start();
-    return () => {
-      listeners.delete(setT);
-      stop();
+    if (!playing) return;
+    const t = window.setInterval(() => {
+      if (!document.hidden) stepCursor(1);
+    }, PLAY_STEP_MS);
+    return () => window.clearInterval(t);
+  }, [playing, stepCursor]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'ArrowRight') stepCursor(1);
+      if (e.key === 'ArrowLeft') stepCursor(-1);
     };
-  }, [live]);
-  return live ? t : null;
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stepCursor]);
+  return null;
 }

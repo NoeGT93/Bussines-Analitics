@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from './store/useStore';
 import { Header, Sidebar, Toaster } from './components/layout/Shell';
 import { MonthDetail } from './components/data/MonthDetail';
+import { PlaybackClock } from './lib/live';
 import { Overview } from './pages/Overview';
 import { Social } from './pages/Social';
 import { Sales } from './pages/Sales';
@@ -37,6 +38,7 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+      <PlaybackClock />
       <MonthDetail />
       <Toaster />
     </div>

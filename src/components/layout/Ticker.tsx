@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../../store/useStore';
-import { useLiveEnabled } from '../../lib/live';
+import { useCursor, useLiveEnabled } from '../../lib/live';
+import { PlaybackControls } from './Playback';
 import { channelsFor, METRICS, rowsFor, type SeriesMetric } from '../../lib/metrics';
 import { fmt, pct, pp } from '../../lib/format';
 import { labelShort } from '../../lib/periods';
@@ -25,11 +26,13 @@ const TICKER_METRICS: SeriesMetric[] = ['ingresos', 'ventas', 'ticket', 'visitas
 export function MarketTicker() {
   const { ds, scope, range, page, openDetail } = useStore();
   const live = useLiveEnabled();
+  const { period: cursor } = useCursor();
 
   const { items, last, prevPeriod } = useMemo(() => {
     const rows = rowsFor(ds, scope, range).filter((r) => Object.keys(r.values).length);
-    const lastRow = rows[rows.length - 1];
-    const prevRow = rows[rows.length - 2];
+    const ci = Math.max(0, rows.findIndex((r) => r.period === cursor));
+    const lastRow = rows.length ? rows[cursor ? ci : rows.length - 1] : undefined;
+    const prevRow = lastRow ? rows[rows.indexOf(lastRow) - 1] : undefined;
     const out: Item[] = [];
     if (lastRow) {
       for (const m of TICKER_METRICS) {
@@ -58,7 +61,7 @@ export function MarketTicker() {
       });
     }
     return { items: out, last: lastRow?.period, prevPeriod: prevRow?.period };
-  }, [ds, scope, range]);
+  }, [ds, scope, range, cursor]);
 
   if (!items.length || page === 'data') return null;
 
@@ -94,12 +97,9 @@ export function MarketTicker() {
 
   return (
     <div className="flex h-8 items-stretch border-t border-line bg-surface/70" role="region" aria-label="Cinta de indicadores">
-      <div className="flex shrink-0 items-center gap-2 border-r border-line bg-surface px-3 text-[11.5px] font-medium text-muted">
-        <span className={cx('relative h-1.5 w-1.5 rounded-full bg-electric', live && 'ba-live-dot')} />
-        <span className="tnum whitespace-nowrap">
-          {last ? labelShort(last, true) : ''}
-          {prevPeriod && <span className="hidden text-faint sm:inline"> vs. {labelShort(prevPeriod, true)}</span>}
-        </span>
+      <div className="flex shrink-0 items-center gap-1.5 border-r border-line bg-surface pl-1.5 pr-3">
+        <PlaybackControls compact />
+        {prevPeriod && <span className="tnum hidden whitespace-nowrap text-[11.5px] text-faint sm:inline">vs. {labelShort(prevPeriod, true)}</span>}
       </div>
       <div className={cx('ba-marquee-wrap relative min-w-0 flex-1', live ? 'overflow-hidden' : 'scroll-thin overflow-x-auto')}>
         <div

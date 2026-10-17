@@ -29,10 +29,17 @@ Al subir a la rama `main`, el flujo `.github/workflows/deploy.yml` publica la ap
 Al estilo de un tablero de bolsa, sin inventar datos: todo recorre los puntos que ya existen.
 
 - **Cinta de indicadores** bajo el encabezado: último mes con datos frente al anterior (▲ ▼) y reparto de ventas por canal. Se detiene al pasar el cursor; cada elemento abre el detalle del mes.
-- **Sparklines vivos**: un destello recorre cada curva y un punto avanza mes a mes; la tarjeta muestra el mes, su valor y la variación.
-- **Gráfico principal**: un cursor recorre los meses y un tablero superior muestra los valores. Se pausa mientras exploras el gráfico.
+- **Sparklines vivos**: un destello recorre cada curva y un punto marca el mes seleccionado; la tarjeta muestra ese mes, su valor y la variación.
+- **Gráfico principal**: un cursor marca el mes seleccionado y una línea superior muestra sus valores. Hacer clic en un punto también lo selecciona.
 
-Se activa o pausa en Configuración → Animación continua, y se apaga sola si el sistema pide reducir movimiento o la pestaña no está visible. El reloj compartido está en `src/lib/live.ts`.
+### Recorrido mes a mes
+
+Un solo mes seleccionado sincroniza la cinta, las tarjetas y el gráfico. Por defecto queda fijo en el último mes con datos y solo cambia cuando la persona lo decide:
+
+- **◀ / ▶** en la cinta y en el gráfico principal: mes anterior o siguiente (también con las flechas ← → del teclado).
+- **Reproducir / pausar**: avanza solo cada 1.8 s y vuelve al inicio al llegar al final.
+
+Los destellos decorativos se pausan en Configuración → Animación continua y se apagan si el sistema pide reducir movimiento. La lógica está en `src/lib/live.ts`.
 
 ## Definiciones
 

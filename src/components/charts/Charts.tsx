@@ -1,5 +1,7 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useLiveTick } from '../../lib/live';
+import { useCursor, useLiveEnabled } from '../../lib/live';
+import { useStore } from '../../store/useStore';
+import { PlaybackControls } from '../layout/Playback';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Area,
@@ -32,13 +34,14 @@ import { Button, cx } from '../ui';
  * recorre la curva de forma continua y un punto salta de mes en mes al ritmo del reloj
  * compartido. `activeIndex` permite que la tarjeta muestre el mismo dato en texto.
  */
-export function Sparkline({ data, color, height = 34, className }: { data: (number | null)[]; color: string; height?: number; className?: string }) {
+export function Sparkline({ data, periods, color, height = 34, className }: { data: (number | null)[]; periods?: string[]; color: string; height?: number; className?: string }) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   const [w, setW] = useState(0);
   const [len, setLen] = useState(0);
-  const tick = useLiveTick();
+  const live = useLiveEnabled();
+  const si = useSparkIndex(data, periods);
   const gid = `sp-${useId().replace(/:/g, '')}`;
   useLayoutEffect(() => {
     const el = ref.current;
@@ -70,9 +73,8 @@ export function Sparkline({ data, color, height = 34, className }: { data: (numb
   }, [d]);
 
   if (pts.length < 2) return <div ref={ref} style={{ height }} className={className} />;
-  const live = tick !== null;
-  const idx = live ? tick % P.length : P.length - 1;
-  const [cx0, cy0] = P[idx];
+  const idx = si ? pts.findIndex((p) => p.i === si.dataIndex) : P.length - 1;
+  const [cx0, cy0] = P[idx < 0 ? P.length - 1 : idx];
   const seg = Math.max(18, len * 0.22);
 
   return (
@@ -125,7 +127,7 @@ export function Sparkline({ data, color, height = 34, className }: { data: (numb
               />
             </>
           )}
-          {live && <motion.line y1={0} y2={H} stroke={color} strokeOpacity={0.18} strokeDasharray="2 3" animate={{ x1: cx0, x2: cx0 }} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }} />}
+          {<motion.line y1={0} y2={H} stroke={color} strokeOpacity={0.18} strokeDasharray="2 3" animate={{ x1: cx0, x2: cx0 }} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }} />}
           <motion.g animate={{ x: cx0, y: cy0 }} initial={false} transition={{ duration: 0.5, ease: [0.2, 0.7, 0.2, 1] }}>
             {live && <circle r={3} fill={color} className="ba-ping" />}
             <circle r={2.6} fill={color} stroke="rgb(var(--surface))" strokeWidth={1.4} />
@@ -136,13 +138,20 @@ export function Sparkline({ data, color, height = 34, className }: { data: (numb
   );
 }
 
-/** Índice del punto que el sparkline está mostrando, para sincronizar textos */
-export function useSparkIndex(data: (number | null)[]) {
-  const tick = useLiveTick();
+/** Punto que corresponde al mes seleccionado en el recorrido (o el último con dato) */
+export function useSparkIndex(data: (number | null)[], periods?: string[]) {
+  const { period } = useCursor();
   const pts = data.map((v, i) => ({ v, i })).filter((p) => p.v !== null);
   if (!pts.length) return null;
-  const k = tick !== null ? tick % pts.length : pts.length - 1;
-  return { dataIndex: pts[k].i, live: tick !== null, prevIndex: k > 0 ? pts[k - 1].i : null };
+  let k = pts.length - 1;
+  if (periods && period) {
+    const target = periods.indexOf(period);
+    if (target >= 0) {
+      const found = pts.map((p) => p.i).filter((i) => i <= target);
+      if (found.length) k = pts.findIndex((p) => p.i === found[found.length - 1]);
+    }
+  }
+  return { dataIndex: pts[k].i, prevIndex: k > 0 ? pts[k - 1].i : null };
 }
 
 /* Tendencia principal -------------------------------------------------- */
@@ -170,9 +179,9 @@ export function TrendChart({
   const [active, setActive] = useState<Set<string>>(new Set(initial));
   const [compare, setCompare] = useState(false);
   const [brush, setBrush] = useState<{ start: number; end: number } | null>(null);
-  const [hover, setHover] = useState(false);
-  const touchTimer = useRef<number>();
-  const tick = useLiveTick();
+  const live = useLiveEnabled();
+  const { period: cursorPeriod } = useCursor();
+  const setCursor = useStore((st) => st.setCursor);
   const colorOf = (m: SeriesMetric) => c.series[metrics.indexOf(m) % c.series.length];
 
   const data = useMemo(
@@ -207,8 +216,8 @@ export function TrendChart({
   if (!available.length) return null;
 
   // Recorrido automático: un cursor avanza mes a mes mientras nadie interactúa con el gráfico
-  const scanRows = rows.map((r, i) => ({ r, i })).filter(({ r }) => shown.some((m) => r.values[m] !== undefined));
-  const scan = tick !== null && !hover && scanRows.length ? scanRows[tick % scanRows.length] : null;
+  const scanIdx = rows.findIndex((r) => r.period === cursorPeriod);
+  const scan = scanIdx >= 0 && shown.some((m) => rows[scanIdx].values[m] !== undefined) ? { r: rows[scanIdx], i: scanIdx } : null;
   const scanPrev = scan ? rows[scan.i - 1] : undefined;
 
   return (
@@ -236,9 +245,9 @@ export function TrendChart({
           )}
         </div>
       </div>
-      {tick !== null && (
-        <div className="mb-1 flex h-6 items-center gap-3 overflow-hidden px-2 text-[12px]" aria-live="off">
-          <span className={cx('relative h-1.5 w-1.5 shrink-0 rounded-full', hover ? 'bg-faint' : 'ba-live-dot bg-electric')} />
+      {(
+        <div className="mb-1 flex h-7 items-center gap-3 overflow-hidden px-1 text-[12px]" aria-live="off">
+          <PlaybackControls compact className="border-r border-line pr-2" />
           <AnimatePresence mode="popLayout" initial={false}>
             {scan && (
               <motion.div
@@ -249,7 +258,6 @@ export function TrendChart({
                 transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
                 className="tnum flex min-w-0 items-center gap-4 whitespace-nowrap"
               >
-                <span className="font-medium text-ink">{labelLong(scan.r.period)}</span>
                 {shown.map((m) => {
                   const v = scan.r.values[m];
                   const p = scanPrev?.values[m];
@@ -268,24 +276,19 @@ export function TrendChart({
                 })}
               </motion.div>
             )}
-            {!scan && (
-              <motion.span key="paused" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-faint">
-                Recorrido en pausa mientras exploras el gráfico
-              </motion.span>
-            )}
           </AnimatePresence>
         </div>
       )}
-      <div style={{ height }} className="w-full" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onTouchStart={() => {
-          setHover(true);
-          window.clearTimeout(touchTimer.current);
-          touchTimer.current = window.setTimeout(() => setHover(false), 6000);
-        }}>
+      <div style={{ height }} className="w-full">
         <ResponsiveContainer>
           <ComposedChart
             data={data}
             margin={{ top: 8, right: counts.length && leftIsMoney ? 4 : 16, left: 0, bottom: 0 }}
-            onClick={(s) => s?.activeLabel && onPointClick?.(String(s.activeLabel))}
+            onClick={(s) => {
+              if (!s?.activeLabel) return;
+              setCursor(String(s.activeLabel));
+              onPointClick?.(String(s.activeLabel));
+            }}
             style={{ cursor: onPointClick ? 'pointer' : undefined }}
           >
             <defs>
@@ -353,7 +356,7 @@ export function TrendChart({
               };
               return i === 0 ? <Area {...common} fill={`url(#g-${m})`} /> : <Line {...common} />;
             })}
-            {tick !== null &&
+            {live &&
               shown.map((m) => (
                 <Line
                   key={`comet_${m}`}

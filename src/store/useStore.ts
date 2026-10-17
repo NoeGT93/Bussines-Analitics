@@ -17,6 +17,7 @@ import { activeRepository } from '../lib/repository';
 import { emptyDataset } from '../lib/defaults';
 import { demoCopicentro } from '../lib/demo';
 import { shift } from '../lib/periods';
+import { rowsFor } from '../lib/metrics';
 
 export type PageId = 'overview' | 'social' | 'sales' | 'traffic' | 'compare' | 'insights' | 'data';
 
@@ -33,6 +34,9 @@ interface UiState {
   theme: 'light' | 'dark';
   sidebarCollapsed: boolean;
   liveMotion: boolean;
+  /** Mes seleccionado para el recorrido (null = último mes con datos) */
+  cursor: Period | null;
+  playing: boolean;
   mobileNav: boolean;
   detail: DetailTarget | null;
   toast: { id: number; text: string; tone: 'ok' | 'error' | 'info' } | null;
@@ -47,6 +51,9 @@ interface Actions {
   toggleTheme(): void;
   toggleSidebar(): void;
   toggleLive(): void;
+  setCursor(p: Period | null): void;
+  stepCursor(delta: number): void;
+  togglePlay(): void;
   setMobileNav(v: boolean): void;
   openDetail(d: DetailTarget | null): void;
   notify(text: string, tone?: 'ok' | 'error' | 'info'): void;
@@ -147,6 +154,8 @@ export const useStore = create<Store>((set, get) => {
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     sidebarCollapsed: !!prefs.sidebarCollapsed,
     liveMotion: prefs.liveMotion ?? true,
+    cursor: null,
+    playing: false,
     mobileNav: false,
     detail: null,
     toast: null,
@@ -154,9 +163,9 @@ export const useStore = create<Store>((set, get) => {
     setPage: (page) => set({ page, mobileNav: false, detail: null }),
     setScope: (scope) => {
       const r = availableRange(get().ds, scope);
-      set({ scope, ...(r ? { range: r, rangePreset: 'all' } : {}), detail: null });
+      set({ scope, ...(r ? { range: r, rangePreset: 'all' } : {}), detail: null, cursor: null });
     },
-    setRange: (range, preset = 'custom') => set({ range, rangePreset: preset }),
+    setRange: (range, preset = 'custom') => set({ range, rangePreset: preset, cursor: null }),
     toggleTheme: () => {
       const theme = get().theme === 'dark' ? 'light' : 'dark';
       document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -169,6 +178,16 @@ export const useStore = create<Store>((set, get) => {
     },
     toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
     toggleLive: () => set((s) => ({ liveMotion: !s.liveMotion })),
+    setCursor: (cursor) => set({ cursor }),
+    stepCursor: (delta) => {
+      const { ds, scope, range, cursor } = get();
+      const months = dataMonths(ds, scope, range);
+      if (!months.length) return;
+      const cur = resolveCursor(months, cursor);
+      const i = months.indexOf(cur);
+      set({ cursor: months[(i + delta + months.length * 10) % months.length] });
+    },
+    togglePlay: () => set((s) => ({ playing: !s.playing })),
     setMobileNav: (mobileNav) => set({ mobileNav }),
     openDetail: (detail) => set({ detail }),
     notify: (text, tone = 'ok') => set({ toast: { id: ++toastId, text, tone } }),
@@ -266,6 +285,18 @@ useStore.subscribe((s, prev) => {
     }
   }
 });
+
+/** Meses del rango con algún dato, para el recorrido */
+export function dataMonths(ds: Dataset, scope: CompanyScope, range: DateRange): Period[] {
+  return rowsFor(ds, scope, range)
+    .filter((r) => Object.keys(r.values).length > 0)
+    .map((r) => r.period);
+}
+
+export function resolveCursor(months: Period[], cursor: Period | null): Period {
+  if (cursor && months.includes(cursor)) return cursor;
+  return months[months.length - 1];
+}
 
 export const hasDemo = (ds: Dataset) => ds.monthly.some((r) => r.source.kind === 'demo') || ds.channels.some((r) => r.source.kind === 'demo');
 
