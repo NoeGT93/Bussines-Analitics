@@ -3,6 +3,7 @@ import { BadgePercent, Banknote, Coins, Eye, MessageSquare, MousePointerClick, R
 import { useStore } from '../store/useStore';
 import { KpiCard, type KpiCardProps } from '../components/kpi/KpiCard';
 import { LeadSnapshotCard } from '../components/data/LeadSnapshot';
+import { AccumulatedCard } from '../components/data/Accumulated';
 import { roiByMonth, roiTotal } from '../lib/roi';
 import type { Unit } from '../lib/format';
 import type { PageId } from '../store/useStore';
@@ -34,15 +35,15 @@ export function Overview() {
     const prevLabel = `vs. ${labelRange(previousRange(range))}`;
     type Base = { key: SeriesMetric; label: string; icon: JSX.Element; unit: Unit; color: string; page: PageId; pp?: boolean };
     const base: Base[] = [
-      { key: 'ingresos', label: 'Ingresos', icon: <Banknote size={14} />, unit: 'Q', color: c.series[0], page: 'sales' },
-      { key: 'ventas', label: 'Ventas cerradas', icon: <ShoppingBag size={14} />, unit: 'n', color: c.series[0], page: 'sales' },
+      { key: 'ingresos', label: 'Ingresos', icon: <Banknote size={14} />, unit: 'Q', color: c.series[0], page: 'roi' },
+      { key: 'ventas', label: 'Ventas cerradas', icon: <ShoppingBag size={14} />, unit: 'n', color: c.series[0], page: 'traffic' },
       { key: 'consultas', label: 'Leads', icon: <MessageSquare size={14} />, unit: 'n', color: c.series[1], page: 'traffic' },
       { key: 'cierre', label: 'Tasa de cierre', icon: <BadgePercent size={14} />, unit: '%', color: c.series[2], page: 'traffic', pp: true },
-      { key: 'ticket', label: 'Ticket promedio', icon: <Receipt size={14} />, unit: 'Q2', color: c.series[2], page: 'sales' },
+      { key: 'ticket', label: 'Ticket promedio', icon: <Receipt size={14} />, unit: 'Q2', color: c.series[2], page: 'roi' },
       { key: 'visitas', label: 'Visitas web', icon: <Eye size={14} />, unit: 'n', color: c.series[1], page: 'traffic' },
       { key: 'clics', label: 'Clics', icon: <MousePointerClick size={14} />, unit: 'n', color: c.series[1], page: 'traffic' },
       { key: 'conversion', label: 'Conversión web', icon: <BadgePercent size={14} />, unit: '%', color: c.series[2], page: 'traffic', pp: true },
-      { key: 'clientesNuevos', label: 'Clientes nuevos', icon: <UserPlus size={14} />, unit: 'n', color: c.series[3], page: 'sales' },
+      { key: 'clientesNuevos', label: 'Clientes nuevos', icon: <UserPlus size={14} />, unit: 'n', color: c.series[3], page: 'roi' },
     ];
     const out: (KpiCardProps & { key: string })[] = [];
     for (const b of base) {
@@ -97,7 +98,7 @@ export function Overview() {
       const g = kpi(ds, scope, range, 'ingresos');
       list.push({
         key: 'crec', label: 'Crecimiento', icon: <TrendingUp size={14} />, unit: '%', value: g.delta,
-        help: 'Variación de ingresos frente al período anterior de igual duración.', pending: 'Sin período anterior completo', color: c.series[0], onOpen: () => setPage('compare'),
+        help: 'Variación de ingresos frente al período anterior de igual duración.', pending: 'Sin período anterior completo', color: c.series[0],
       } as KpiCardProps & { key: string });
     }
     return list;
@@ -125,6 +126,8 @@ export function Overview() {
     <>
       <PageHeader title="Resumen ejecutivo" description={`${scopeLabel}, ${labelRange(range)}. Toca un indicador para ver su análisis.`} />
 
+      <AccumulatedCard />
+
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         {cards.map(({ key, ...cd }) => (
           <KpiCard key={key} {...cd} />
@@ -146,11 +149,6 @@ export function Overview() {
           <CardHeader title="Hallazgos principales" subtitle="Calculados con reglas a partir de los datos cargados." />
           <div className="flex-1 space-y-4 px-5 py-4">
             {insights.length ? insights.map((i) => <InsightItem key={i.id} ins={i} />) : <p className="text-[12.5px] text-muted">Se necesitan al menos dos meses con datos.</p>}
-          </div>
-          <div className="border-t border-line px-5 py-3">
-            <button type="button" onClick={() => setPage('insights')} className="text-[12.5px] font-medium text-electric hover:underline">
-              Ver todos los hallazgos
-            </button>
           </div>
         </Card>
       </div>

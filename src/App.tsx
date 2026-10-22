@@ -2,24 +2,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from './store/useStore';
 import { Header, Sidebar, Toaster } from './components/layout/Shell';
 import { MonthDetail } from './components/data/MonthDetail';
-import { PlaybackClock } from './lib/live';
 import { Overview } from './pages/Overview';
-import { Social } from './pages/Social';
-import { Sales } from './pages/Sales';
 import { Traffic } from './pages/Traffic';
 import { Roi } from './pages/Roi';
-import { Compare } from './pages/Compare';
-import { Insights } from './pages/Insights';
 import { DataAdmin } from './pages/DataAdmin';
 
 const PAGES = {
   overview: Overview,
-  social: Social,
-  sales: Sales,
   traffic: Traffic,
   roi: Roi,
-  compare: Compare,
-  insights: Insights,
   data: DataAdmin,
 };
 
@@ -40,7 +31,6 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
-      <PlaybackClock />
       <MonthDetail />
       <Toaster />
     </div>

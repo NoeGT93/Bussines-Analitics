@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  BarChart3,
   Building2,
   CalendarRange,
   Check,
@@ -10,37 +9,27 @@ import {
   FileDown,
   FileSpreadsheet,
   FileText,
-  GitCompareArrows,
-  Lightbulb,
   Menu,
   Moon,
   MousePointerClick,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings,
-  Share2,
   Sun,
   TableProperties,
   X,
   LayoutDashboard,
-  Activity,
   Coins,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { MarketTicker } from './Ticker';
-import { availableRange, hasDemo, useStore, type PageId } from '../../store/useStore';
-import { Button, cx, MenuItem, Popover, Tag } from '../ui';
+import { availableRange, useStore, type PageId } from '../../store/useStore';
+import { Button, cx, MenuItem, Popover } from '../ui';
 import { labelLong, labelRange, monthsBetween, shift } from '../../lib/periods';
 import { exportCsv, exportPdf, exportXlsx } from '../../lib/exporter';
 
 export const NAV: { id: PageId; label: string; icon: ReactNode }[] = [
   { id: 'overview', label: 'Resumen ejecutivo', icon: <LayoutDashboard size={17} /> },
-  { id: 'social', label: 'Redes sociales', icon: <Share2 size={17} /> },
-  { id: 'sales', label: 'Ventas', icon: <BarChart3 size={17} /> },
-  { id: 'traffic', label: 'Leads y conversión', icon: <MousePointerClick size={17} /> },
+  { id: 'traffic', label: 'Leads por red', icon: <MousePointerClick size={17} /> },
   { id: 'roi', label: 'ROI y costos', icon: <Coins size={17} /> },
-  { id: 'compare', label: 'Comparativas', icon: <GitCompareArrows size={17} /> },
-  { id: 'insights', label: 'Hallazgos', icon: <Lightbulb size={17} /> },
   { id: 'data', label: 'Gestión de datos', icon: <Database size={17} /> },
 ];
 
@@ -368,39 +357,9 @@ function ExportMenu() {
   );
 }
 
-/* Configuración ------------------------------------------------------------ */
-function SettingsMenu() {
-  const { theme, toggleTheme, setPage, liveMotion, toggleLive } = useStore();
-  return (
-    <Popover
-      width={230}
-      trigger={({ open, toggle }) => (
-        <Button size="icon" onClick={toggle} aria-expanded={open} aria-label="Configuración">
-          <Settings size={17} />
-        </Button>
-      )}
-    >
-      {(close) => (
-        <>
-          <MenuItem icon={theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />} onClick={() => (toggleTheme(), close())}>
-            {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-          </MenuItem>
-          <MenuItem icon={<Activity size={15} />} hint={liveMotion ? 'Activada' : 'Pausada'} onClick={() => toggleLive()}>
-            Animación continua
-          </MenuItem>
-          <MenuItem icon={<Database size={15} />} onClick={() => (setPage('data'), close())}>
-            Datos, empresas y metas
-          </MenuItem>
-        </>
-      )}
-    </Popover>
-  );
-}
-
 /* Encabezado ----------------------------------------------------------------- */
 export function Header() {
-  const { setMobileNav, ds, theme, toggleTheme, page } = useStore();
-  const demo = hasDemo(ds);
+  const { setMobileNav, theme, toggleTheme } = useStore();
   return (
     <header
       className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md"
@@ -414,24 +373,16 @@ export function Header() {
         <div className="hidden md:block">
           <RangePicker />
         </div>
-        {demo && page !== 'data' && (
-          <span className="hidden xl:inline-flex">
-            <Tag tone="warn">Datos del archivo base, sin verificar</Tag>
-          </span>
-        )}
         <div className="ml-auto flex items-center gap-1.5">
           <ExportMenu />
-          <Button size="icon" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'} className="hidden sm:inline-flex">
+          <Button size="icon" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}>
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </Button>
-          <SettingsMenu />
         </div>
       </div>
       <div className="flex items-center gap-2 px-3 pb-2.5 md:hidden">
         <RangePicker />
-        {demo && <Tag tone="warn">Sin verificar</Tag>}
       </div>
-      <MarketTicker />
     </header>
   );
 }

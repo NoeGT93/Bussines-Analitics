@@ -21,7 +21,8 @@ import { seedSpartan, SEED_VERSION } from '../lib/demo';
 import { shift } from '../lib/periods';
 import { rowsFor } from '../lib/metrics';
 
-export type PageId = 'overview' | 'social' | 'sales' | 'traffic' | 'roi' | 'compare' | 'insights' | 'data';
+export type PageId = 'overview' | 'traffic' | 'roi' | 'data';
+const PAGE_IDS: PageId[] = ['overview', 'traffic', 'roi', 'data'];
 
 export interface DetailTarget {
   period: Period;
@@ -35,10 +36,8 @@ interface UiState {
   rangePreset: string;
   theme: 'light' | 'dark';
   sidebarCollapsed: boolean;
-  liveMotion: boolean;
-  /** Mes seleccionado para el recorrido (null = último mes con datos) */
+  /** Mes que muestran las tarjetas (null = último mes con datos) */
   cursor: Period | null;
-  playing: boolean;
   mobileNav: boolean;
   detail: DetailTarget | null;
   toast: { id: number; text: string; tone: 'ok' | 'error' | 'info' } | null;
@@ -52,10 +51,7 @@ interface Actions {
   setRange(r: DateRange, preset?: string): void;
   toggleTheme(): void;
   toggleSidebar(): void;
-  toggleLive(): void;
   setCursor(p: Period | null): void;
-  stepCursor(delta: number): void;
-  togglePlay(): void;
   setMobileNav(v: boolean): void;
   openDetail(d: DetailTarget | null): void;
   notify(text: string, tone?: 'ok' | 'error' | 'info'): void;
@@ -161,15 +157,13 @@ export const useStore = create<Store>((set, get) => {
 
   return {
     ds: initialDs,
-    page: (prefs.page as PageId) ?? 'overview',
+    page: prefs.page && PAGE_IDS.includes(prefs.page) ? prefs.page : 'overview',
     scope: initialScope,
     range: availableRange(initialDs, initialScope) ?? fallbackRange(),
     rangePreset: 'all',
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     sidebarCollapsed: !!prefs.sidebarCollapsed,
-    liveMotion: prefs.liveMotion ?? true,
     cursor: null,
-    playing: false,
     mobileNav: false,
     detail: null,
     toast: null,
@@ -191,17 +185,7 @@ export const useStore = create<Store>((set, get) => {
       set({ theme });
     },
     toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-    toggleLive: () => set((s) => ({ liveMotion: !s.liveMotion })),
     setCursor: (cursor) => set({ cursor }),
-    stepCursor: (delta) => {
-      const { ds, scope, range, cursor } = get();
-      const months = dataMonths(ds, scope, range);
-      if (!months.length) return;
-      const cur = resolveCursor(months, cursor);
-      const i = months.indexOf(cur);
-      set({ cursor: months[(i + delta + months.length * 10) % months.length] });
-    },
-    togglePlay: () => set((s) => ({ playing: !s.playing })),
     setMobileNav: (mobileNav) => set({ mobileNav }),
     openDetail: (detail) => set({ detail }),
     notify: (text, tone = 'ok') => set({ toast: { id: ++toastId, text, tone } }),
@@ -316,9 +300,9 @@ useStore.subscribe((s, prev) => {
     window.clearTimeout(saveTimer);
     saveTimer = window.setTimeout(() => activeRepository.save(s.ds), 150);
   }
-  if (s.page !== prev.page || s.scope !== prev.scope || s.sidebarCollapsed !== prev.sidebarCollapsed || s.liveMotion !== prev.liveMotion) {
+  if (s.page !== prev.page || s.scope !== prev.scope || s.sidebarCollapsed !== prev.sidebarCollapsed) {
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ page: s.page, scope: s.scope, sidebarCollapsed: s.sidebarCollapsed, liveMotion: s.liveMotion }));
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ page: s.page, scope: s.scope, sidebarCollapsed: s.sidebarCollapsed }));
     } catch {
       /* noop */
     }
