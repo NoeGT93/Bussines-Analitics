@@ -34,10 +34,10 @@ export interface MetricDef {
 
 export const METRICS: Record<SeriesMetric, MetricDef> = {
   ingresos: { key: 'ingresos', label: 'Ingresos', unit: 'Q', help: 'Suma de ingresos registrados en el período, en quetzales.', higherIsBetter: true },
-  ventas: { key: 'ventas', label: 'Ventas', unit: 'n', help: 'Número de ventas o tickets realizados en el período.', higherIsBetter: true },
+  ventas: { key: 'ventas', label: 'Ventas cerradas', unit: 'n', help: 'Número de ventas cerradas (leads que se convirtieron en clientes) en el período.', higherIsBetter: true },
   visitas: { key: 'visitas', label: 'Visitas web', unit: 'n', help: 'Visitas al sitio web registradas en el período.', higherIsBetter: true },
   clics: { key: 'clics', label: 'Clics', unit: 'n', help: 'Clics registrados (anuncios, enlaces o botones de contacto según el origen del archivo).', higherIsBetter: true },
-  consultas: { key: 'consultas', label: 'Consultas', unit: 'n', help: 'Consultas recibidas por cualquier canal (mensajes, llamadas, formularios).', higherIsBetter: true },
+  consultas: { key: 'consultas', label: 'Leads', unit: 'n', help: 'Leads o consultas recibidos por cualquier canal (mensajes, formularios, llamadas).', higherIsBetter: true },
   clientesNuevos: { key: 'clientesNuevos', label: 'Clientes nuevos', unit: 'n', help: 'Clientes que compraron por primera vez en el período.', higherIsBetter: true },
   clientesRecurrentes: { key: 'clientesRecurrentes', label: 'Clientes recurrentes', unit: 'n', help: 'Clientes que ya habían comprado antes.', higherIsBetter: true },
   conversion: {
@@ -52,7 +52,7 @@ export const METRICS: Record<SeriesMetric, MetricDef> = {
     key: 'ticket',
     label: 'Ticket promedio',
     unit: 'Q2',
-    help: 'Ingresos ÷ ventas. Se recalcula desde los totales, no se promedian los tickets mensuales.',
+    help: 'Ingresos ÷ ventas cerradas. Se recalcula desde los totales, no se promedian los tickets mensuales.',
     ratio: { num: 'ingresos', den: 'ventas' },
     higherIsBetter: true,
   },
@@ -60,15 +60,15 @@ export const METRICS: Record<SeriesMetric, MetricDef> = {
     key: 'tasaConsulta',
     label: 'Visitas que consultan',
     unit: '%',
-    help: 'Consultas ÷ visitas web.',
+    help: 'Leads ÷ visitas web.',
     ratio: { num: 'consultas', den: 'visitas' },
     higherIsBetter: true,
   },
   cierre: {
     key: 'cierre',
-    label: 'Cierre de consultas',
+    label: 'Tasa de cierre',
     unit: '%',
-    help: 'Ventas ÷ consultas. Mide qué proporción de consultas termina en venta.',
+    help: 'Ventas cerradas ÷ leads recibidos. Qué proporción de los leads termina en venta.',
     ratio: { num: 'ventas', den: 'consultas' },
     higherIsBetter: true,
   },
@@ -291,16 +291,22 @@ export function channelsFor(ds: Dataset, scope: CompanyScope, range: DateRange):
 }
 
 export function normalizeChannel(name: string) {
-  const s = name.trim();
-  const low = s.toLowerCase();
-  if (/(facebook|instagram|meta|fb|ig)/.test(low) && /(\/|y|&|\+)/.test(low)) return 'Facebook / Instagram';
-  if (low === 'facebook' || low === 'fb') return 'Facebook';
-  if (low === 'instagram' || low === 'ig') return 'Instagram';
+  const s = name.trim().replace(/\s+/g, ' ');
+  const low = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const platform = (l: string) =>
+    /instagram|\big\b/.test(l) ? 'Instagram' : /facebook|\bfb\b/.test(l) ? 'Facebook' : /tik ?tok/.test(l) ? 'TikTok' : /whats ?app?|whatsap|\bwa\b/.test(l) ? 'WhatsApp' : null;
+  if (low.includes('formulario') || low.includes('lead form')) {
+    const p = platform(low);
+    return p ? `Formulario ${p}` : 'Formulario';
+  }
+  if (/(facebook|instagram|meta)/.test(low) && /(\/| y |&|\+)/.test(low)) return 'Facebook / Instagram';
+  if (low.includes('messenger')) return 'Messenger';
+  const p = platform(low);
+  if (p) return p;
   if (low.includes('google')) return 'Google';
-  if (low.includes('whatsapp') || low === 'wa') return 'WhatsApp';
   if (low.includes('recurrente')) return 'Clientes recurrentes';
   if (low.includes('referid') || low.includes('recomend')) return 'Referidos';
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
 /* ------------------------------------------------------------------ */

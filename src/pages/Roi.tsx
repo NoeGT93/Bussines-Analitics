@@ -4,7 +4,7 @@ import { AlertTriangle, BookOpen, Calculator, FileSpreadsheet, Upload } from 'lu
 import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
 import { Button, Card, CardHeader, cx, InfoTip, PageHeader, Tag } from '../components/ui';
-import { roiByChannel, roiByMonth, roiTotal, ROI_GLOSSARY } from '../lib/roi';
+import { adMetrics, roiByChannel, roiByMonth, roiTotal, ROI_GLOSSARY } from '../lib/roi';
 import { compact, fmt } from '../lib/format';
 import { labelLong, labelRange, labelShort } from '../lib/periods';
 import { downloadTemplate } from '../lib/importer';
@@ -55,7 +55,7 @@ function Stat({ label, value, help, tone }: { label: string; value: string; help
       <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
         {label} <InfoTip text={help} />
       </div>
-      <div className={cx('tnum mt-2 text-[21px] font-semibold tracking-[-0.02em]', tone === 'up' ? 'text-up' : tone === 'down' ? 'text-down' : 'text-ink')}>{value}</div>
+      <div className={cx('tnum mt-2 whitespace-nowrap text-[19px] font-semibold tracking-[-0.02em] sm:text-[21px]', tone === 'up' ? 'text-up' : tone === 'down' ? 'text-down' : 'text-ink')}>{value}</div>
     </Card>
   );
 }
@@ -71,20 +71,22 @@ export function Roi() {
   const ch = useMemo(() => roiByChannel(ds, scope, range), [ds, scope, range]);
   const months = useMemo(() => roiByMonth(ds, scope, range), [ds, scope, range]);
   const total = useMemo(() => roiTotal(ds, scope, range), [ds, scope, range]);
+  const ads = useMemo(() => adMetrics(ds, scope, range), [ds, scope, range]);
   const chCost = (canal: string) => ds.costs.find((x) => x.companyId === scope && x.period === null && x.canal === canal)?.inversion;
   const monthCost = (p: string) => ds.costs.find((x) => x.companyId === scope && x.period === p && x.canal === null)?.inversion;
   const hasChannelCosts = ch.rows.some((r) => r.inversion !== undefined);
   const hasMonthCosts = months.some((m) => m.inversion !== undefined);
   const margen = ch.margen;
+  const hasChIngresos = ch.rows.some((r) => r.ingresos !== undefined);
 
   const chartCh = ch.rows.filter((r) => r.roi !== undefined).map((r) => ({ canal: r.canal, roi: r.roi!, ingresos: r.ingresos, inversion: r.inversion }));
-  const chartMonths = months.map((m) => ({ period: m.period, ingresos: m.ingresos, inversion: m.inversion, roi: m.roi, cac: m.cac }));
+  const chartMonths = months.map((m) => ({ period: m.period, ingresos: m.ingresos, inversion: m.inversion, roi: m.roi, cpl: m.costoConsulta, cpa: m.cpa }));
 
   return (
     <>
       <PageHeader
         title="ROI y costos de retorno"
-        description={`${companyName}, ${labelRange(range)}. Cuánto se invierte para generar cada venta y cuánto regresa por cada quetzal invertido.`}
+        description={`${companyName}, ${labelRange(range)}. Si la inversión en publicidad fue rentable, cuánto cuesta cada lead y cuánto cuesta cada venta cerrada.`}
         actions={
           <>
             <Button variant="outline" onClick={() => setShowGlossary((v) => !v)}>
@@ -124,31 +126,42 @@ export function Roi() {
 
       {showGlossary && (
         <Card className="mb-3">
-          <CardHeader title="Cómo se calcula cada indicador" subtitle="Fórmulas transparentes; todas en quetzales y sobre el período seleccionado." />
+          <CardHeader title="La chuleta para no confundirse" subtitle="Qué significa cada métrica y cómo se calcula aquí. Todas en quetzales y sobre el período seleccionado." />
           <div className="grid grid-cols-1 gap-px overflow-hidden rounded-b-card bg-line sm:grid-cols-2 xl:grid-cols-3 mt-4 border-t border-line">
             {ROI_GLOSSARY.map((g) => (
               <div key={g.term} className="bg-surface px-5 py-3.5">
                 <div className="text-[13px] font-semibold text-ink">{g.term}</div>
                 <div className="tnum mt-1 inline-block rounded-md bg-sunken px-2 py-0.5 font-mono text-[11.5px] text-ink">{g.formula}</div>
                 <p className="mt-1.5 text-[12px] leading-relaxed text-muted">{g.reading}</p>
+                {g.needs && (
+                  <div className="mt-1.5">
+                    <Tag tone={ads.impresiones ? 'up' : 'warn'}>{ads.impresiones ? 'Con datos de anuncios' : `Pendiente: ${g.needs.toLowerCase()}`}</Tag>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Inversión" value={fmt(total.inversion, 'Q')} help="Suma de todos los costos registrados para el período: mensuales y acumulados por canal." />
-        <Stat label="Ingresos" value={fmt(total.ingresos, 'Q')} help="Ingresos de los datos mensuales del período." />
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
+        <Stat label="Inversión" value={fmt(total.inversion, 'Q')} help="Suma de la inversión registrada para el período." />
+        <Stat label="Ventas" value={fmt(total.ingresos, 'Q')} help="Ventas en quetzales del período." />
         <Stat
-          label={margen !== undefined ? 'ROI sobre utilidad' : 'ROI sobre ingresos'}
-          value={total.roi === undefined ? '—' : fmt(total.roi, '%')}
-          tone={total.roi === undefined ? undefined : total.roi >= 0 ? 'up' : 'down'}
-          help={margen !== undefined ? `(Ingresos × ${fmt(margen, '%')} de margen − inversión) ÷ inversión.` : '(Ingresos − inversión) ÷ inversión. Sin margen definido sobrestima el ROI real.'}
+          label="Beneficio neto"
+          value={fmt(total.beneficio, 'Q')}
+          tone={total.beneficio === undefined ? undefined : total.beneficio >= 0 ? 'up' : 'down'}
+          help={margen !== undefined ? `Ventas × ${fmt(margen, '%')} de margen − inversión.` : 'Ventas − inversión, como en el reporte. No descuenta renta, planilla ni otros gastos del gimnasio.'}
         />
-        <Stat label="ROAS" value={total.roas === undefined ? '—' : `${total.roas.toFixed(2)}×`} help="Ingresos ÷ inversión." />
-        <Stat label="Costo por venta" value={fmt(total.cpa, 'Q2')} help="Inversión ÷ número de ventas (cierre de ventas)." />
-        <Stat label="Costo por cliente nuevo" value={fmt(total.cac, 'Q2')} help="Inversión ÷ clientes nuevos del período." />
+        <Stat label="ROI" value={total.roi === undefined ? '—' : fmt(total.roi, '%')} tone={total.roi === undefined ? undefined : total.roi >= 0 ? 'up' : 'down'} help="Beneficio neto ÷ inversión × 100." />
+        <Stat label="ROAS" value={total.roas === undefined ? '—' : `${total.roas.toFixed(2)}×`} help="Ventas ÷ inversión." />
+        <Stat label="CPL" value={fmt(total.costoConsulta, 'Q2')} help="Costo por lead: inversión ÷ leads recibidos." />
+        <Stat label="CPA" value={fmt(total.cpa, 'Q2')} help="Costo por venta cerrada: inversión ÷ ventas cerradas." />
+        <Stat
+          label="CTR"
+          value={ads.ctr === undefined ? 'Pendiente' : fmt(ads.ctr, '%')}
+          help="Clics ÷ impresiones. Requiere los datos del administrador de anuncios (Meta Ads, TikTok Ads), que se importan en Redes sociales."
+        />
       </div>
 
       {total.hasCosts && (() => {
@@ -171,27 +184,27 @@ export function Roi() {
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader
-            title="Retorno por canal"
+            title="Costo por red"
             subtitle={
               ch.mode === 'acumulado'
                 ? 'Los datos por canal son acumulados del archivo; escribe la inversión total de cada canal en ese mismo período.'
-                : labelRange(range)
+                : `${labelRange(range)}. El reporte no reparte la inversión por red: escribe cuánto va a cada una para ver su CPL y CPA.`
             }
-            help="El ROI de cada canal usa los ingresos que el archivo atribuye a ese canal. Es una atribución declarada, no una medición causal."
+            help="Si el archivo atribuye ventas en quetzales a cada red, también se calcula su ROI. Es una atribución declarada, no una medición causal."
           />
           {ch.rows.length ? (
             <div className="scroll-thin mt-3 overflow-x-auto">
               <table className="w-full min-w-[860px] text-[12.5px]">
                 <thead>
                   <tr className="border-b border-line text-left text-faint">
-                    <th className="px-5 py-2 font-medium">Canal</th>
+                    <th className="px-5 py-2 font-medium">Red</th>
                     <th className="w-32 px-2 py-2 text-right font-medium">Inversión</th>
-                    <th className="px-3 py-2 text-right font-medium">Ingresos</th>
-                    <th className="px-3 py-2 text-right font-medium">ROI</th>
-                    <th className="px-3 py-2 text-right font-medium">ROAS</th>
-                    <th className="px-3 py-2 text-right font-medium">Costo por venta</th>
-                    <th className="px-3 py-2 text-right font-medium">Costo por consulta</th>
-                    <th className="px-5 py-2 text-right font-medium">Costo por Q</th>
+                    <th className="px-3 py-2 text-right font-medium">Leads</th>
+                    <th className="px-3 py-2 text-right font-medium">Cerradas</th>
+                    <th className="px-3 py-2 text-right font-medium">Cierre</th>
+                    <th className="px-3 py-2 text-right font-medium">CPL</th>
+                    <th className="px-3 py-2 text-right font-medium">CPA</th>
+                    {hasChIngresos && <th className="px-5 py-2 text-right font-medium">ROI</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -210,14 +223,16 @@ export function Roi() {
                             <div className="tnum text-right text-ink">{fmt(r.inversion, 'Q')}</div>
                           )}
                         </td>
-                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.ingresos, 'Q')}</td>
-                        <td className="tnum whitespace-nowrap px-3 py-2 text-right">
-                          <RoiValue v={r.roi} />
-                        </td>
-                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{r.roas === undefined ? '—' : `${r.roas.toFixed(2)}×`}</td>
-                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.cpa, 'Q2')}</td>
+                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.consultas)}</td>
+                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.ventas)}</td>
+                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.cierre, '%')}</td>
                         <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.costoConsulta, 'Q2')}</td>
-                        <td className="tnum whitespace-nowrap px-5 py-2 text-right text-ink">{fmt(r.costoPorQuetzal, 'Q2')}</td>
+                        <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(r.cpa, 'Q2')}</td>
+                        {hasChIngresos && (
+                          <td className="tnum whitespace-nowrap px-5 py-2 text-right">
+                            <RoiValue v={r.roi} />
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -228,7 +243,7 @@ export function Roi() {
               )}
               <p className="px-5 py-3 text-[11.5px] leading-snug text-faint">
                 {editable ? 'Escribe la inversión y presiona Enter; se guarda en este navegador. ' : 'En la vista consolidada los costos se suman; edítalos desde cada empresa. '}
-                Los canales sin inversión registrada no tienen ROI (no se puede dividir entre cero).
+                Las redes sin inversión registrada no tienen CPL ni CPA (no se puede dividir entre cero).
               </p>
             </div>
           ) : (
@@ -247,8 +262,8 @@ export function Roi() {
           />
           <div className="flex-1 px-5 py-4">
             <p className="text-[12.5px] leading-relaxed text-muted">
-              Los ingresos no son ganancia: incluyen papel, tinta, mano de obra y otros costos del servicio. Con el margen bruto, el ROI se calcula sobre lo que realmente queda. Por ejemplo, con
-              40 % de margen, una venta de Q 100 deja Q 40 para pagar la publicidad.
+              El reporte calcula el beneficio neto como ventas menos inversión en publicidad, pero una membresía también paga renta, entrenadores, equipo y servicios. Con el margen, el ROI refleja
+              lo que realmente queda: con 40 % de margen, una inscripción de Q 1,500 deja Q 600 para pagar la publicidad.
             </p>
             {editable ? (
               <div className="mt-4 max-w-[160px]">
@@ -263,7 +278,7 @@ export function Roi() {
               <p className="mt-4 text-[12.5px] text-ink">{margen !== undefined ? `Margen común: ${fmt(margen, '%')}` : 'Las empresas tienen márgenes distintos o sin definir.'}</p>
             )}
             <div className="mt-4">
-              {margen !== undefined ? <Tag tone="up">ROI sobre utilidad bruta</Tag> : <Tag tone="warn">ROI sobre ingresos (sobrestimado)</Tag>}
+              {margen !== undefined ? <Tag tone="up">ROI con margen</Tag> : <Tag tone="warn">ROI como en el reporte: ventas − inversión</Tag>}
             </div>
             {total.ventasEquilibrio !== undefined && (
               <div className="mt-5 rounded-xl bg-sunken p-3.5">
@@ -341,7 +356,7 @@ export function Roi() {
       <Card className="mt-3">
         <CardHeader
           title="Retorno mes a mes"
-          subtitle="Escribe la inversión total de cada mes (todos los canales) para ver el ROI, el costo por venta y el costo por cliente nuevo."
+          subtitle="Inversión total de cada mes (todas las redes). Puedes corregirla aquí; el ROI, el CPL y el CPA se recalculan al instante."
         />
         <div className="scroll-thin mt-3 overflow-x-auto">
           <table className="w-full min-w-[820px] text-[12.5px]">
@@ -349,11 +364,12 @@ export function Roi() {
               <tr className="border-b border-line text-left text-faint">
                 <th className="px-5 py-2 font-medium">Mes</th>
                 <th className="w-32 px-2 py-2 text-right font-medium">Inversión</th>
-                <th className="px-3 py-2 text-right font-medium">Ingresos</th>
+                <th className="px-3 py-2 text-right font-medium">Ventas</th>
+                <th className="px-3 py-2 text-right font-medium">Beneficio neto</th>
                 <th className="px-3 py-2 text-right font-medium">ROI</th>
                 <th className="px-3 py-2 text-right font-medium">ROAS</th>
-                <th className="px-3 py-2 text-right font-medium">Costo por venta</th>
-                <th className="px-5 py-2 text-right font-medium">Costo por cliente nuevo</th>
+                <th className="px-3 py-2 text-right font-medium">CPL</th>
+                <th className="px-5 py-2 text-right font-medium">CPA</th>
               </tr>
             </thead>
             <tbody>
@@ -368,12 +384,13 @@ export function Roi() {
                     )}
                   </td>
                   <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(m.ingresos, 'Q')}</td>
+                  <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(m.beneficio, 'Q')}</td>
                   <td className="tnum whitespace-nowrap px-3 py-2 text-right">
                     <RoiValue v={m.roi} />
                   </td>
                   <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{m.roas === undefined ? '—' : `${m.roas.toFixed(2)}×`}</td>
-                  <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(m.cpa, 'Q2')}</td>
-                  <td className="tnum whitespace-nowrap px-5 py-2 text-right text-ink">{fmt(m.cac, 'Q2')}</td>
+                  <td className="tnum whitespace-nowrap px-3 py-2 text-right text-ink">{fmt(m.costoConsulta, 'Q2')}</td>
+                  <td className="tnum whitespace-nowrap px-5 py-2 text-right text-ink">{fmt(m.cpa, 'Q2')}</td>
                 </tr>
               ))}
             </tbody>
@@ -385,7 +402,7 @@ export function Roi() {
       </Card>
 
       {hasMonthCosts && (
-        <ChartCard className="mt-3" title="Inversión, ingresos y ROI por mes" subtitle={margen !== undefined ? 'ROI sobre utilidad bruta' : 'ROI sobre ingresos'} exportName="roi-mensual">
+        <ChartCard className="mt-3" title="Inversión, ventas y ROI por mes" subtitle={margen !== undefined ? 'ROI con margen bruto' : 'ROI como en el reporte: (ventas − inversión) ÷ inversión'} exportName="roi-mensual">
           <div className="h-[300px]">
             <ResponsiveContainer>
               <ComposedChart data={chartMonths} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -404,16 +421,17 @@ export function Roi() {
                         title={labelLong(d.period)}
                         rows={[
                           { label: 'Inversión', value: d.inversion, unit: 'Q', color: c.warn },
-                          { label: 'Ingresos', value: d.ingresos, unit: 'Q', color: c.series[0] },
+                          { label: 'Ventas', value: d.ingresos, unit: 'Q', color: c.series[0] },
                           { label: 'ROI', value: d.roi, unit: '%', color: c.up },
-                          { label: 'Costo por cliente nuevo', value: d.cac, unit: 'Q2', color: c.faint },
+                          { label: 'CPL', value: d.cpl, unit: 'Q2', color: c.faint },
+                          { label: 'CPA', value: d.cpa, unit: 'Q2', color: c.faint },
                         ]}
                       />
                     );
                   }}
                 />
                 <Bar yAxisId="q" name="Inversión" dataKey="inversion" fill={c.warn} radius={[4, 4, 0, 0]} maxBarSize={20} animationDuration={dur} />
-                <Bar yAxisId="q" name="Ingresos" dataKey="ingresos" fill={c.series[0]} radius={[4, 4, 0, 0]} maxBarSize={20} animationDuration={dur} />
+                <Bar yAxisId="q" name="Ventas" dataKey="ingresos" fill={c.series[0]} radius={[4, 4, 0, 0]} maxBarSize={20} animationDuration={dur} />
                 <Line yAxisId="r" name="ROI" dataKey="roi" type="monotone" stroke={c.up} strokeWidth={2} dot={{ r: 3, fill: c.surface, strokeWidth: 1.5 }} connectNulls={false} animationDuration={dur} />
               </ComposedChart>
             </ResponsiveContainer>

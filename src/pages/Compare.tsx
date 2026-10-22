@@ -12,11 +12,12 @@ const CMP_METRICS: SeriesMetric[] = ['ingresos', 'ventas', 'ticket', 'visitas', 
 
 export function Compare() {
   const [mode, setMode] = useState<'periodos' | 'empresas' | 'canales'>('periodos');
+  const companies = useStore((st) => st.ds.companies.length);
   return (
     <>
       <PageHeader
         title="Comparativas"
-        description="Compara períodos, empresas o canales. Solo se comparan indicadores con datos en ambos lados."
+        description="Compara períodos, redes o empresas. Solo se comparan indicadores con datos en ambos lados."
         actions={
           <Segmented
             value={mode}
@@ -24,8 +25,8 @@ export function Compare() {
             label="Tipo de comparación"
             options={[
               { value: 'periodos', label: 'Períodos' },
-              { value: 'empresas', label: 'Empresas' },
-              { value: 'canales', label: 'Canales' },
+              ...(companies > 1 ? [{ value: 'empresas' as const, label: 'Empresas' }] : []),
+              { value: 'canales', label: 'Redes' },
             ]}
           />
         }

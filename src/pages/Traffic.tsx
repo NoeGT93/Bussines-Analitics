@@ -19,13 +19,13 @@ export function Traffic() {
   const channels = useMemo(() => channelsFor(ds, scope, range), [ds, scope, range]);
   const k = useMemo(() => {
     const g = (m: SeriesMetric) => kpi(ds, scope, range, m);
-    return { visitas: g('visitas'), clics: g('clics'), consultas: g('consultas'), tasaConsulta: g('tasaConsulta'), conversion: g('conversion') };
+    return { visitas: g('visitas'), clics: g('clics'), consultas: g('consultas'), tasaConsulta: g('tasaConsulta'), conversion: g('conversion'), cierre: g('cierre') };
   }, [ds, scope, range]);
 
   if (!hasData) {
     return (
       <>
-        <PageHeader title="Tráfico y conversiones" description={`${scopeLabel}, ${labelRange(range)}`} />
+        <PageHeader title="Leads y conversión" description={`${scopeLabel}, ${labelRange(range)}`} />
         <NoData />
       </>
     );
@@ -45,23 +45,24 @@ export function Traffic() {
 
   return (
     <>
-      <PageHeader title="Tráfico y conversiones" description={`${scopeLabel}, ${labelRange(range)}. Cómo llegan los clientes y cuántos terminan comprando.`} />
+      <PageHeader title="Leads y conversión" description={`${scopeLabel}, ${labelRange(range)}. Cómo llegan los clientes y cuántos terminan comprando.`} />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5">
         <KpiCard label="Visitas web" help={METRICS.visitas.help} unit="n" value={k.visitas.value} delta={k.visitas.delta} compareLabel={prevLabel} coverage={k.visitas.coverage} spark={k.visitas.spark} sparkPeriods={k.visitas.sparkPeriods} color={c.series[0]} />
         <KpiCard label="Clics" help={METRICS.clics.help} unit="n" value={k.clics.value} delta={k.clics.delta} compareLabel={prevLabel} coverage={k.clics.coverage} spark={k.clics.spark} sparkPeriods={k.clics.sparkPeriods} color={c.series[1]} />
-        <KpiCard label="Consultas" help={METRICS.consultas.help} unit="n" value={k.consultas.value} delta={k.consultas.delta} compareLabel={prevLabel} coverage={k.consultas.coverage} spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods} color={c.series[1]} />
+        <KpiCard label="Leads" help={METRICS.consultas.help} unit="n" value={k.consultas.value} delta={k.consultas.delta} compareLabel={prevLabel} coverage={k.consultas.coverage} spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods} color={c.series[1]} />
         <KpiCard label="Visitas que consultan" help={METRICS.tasaConsulta.help} unit="%" value={k.tasaConsulta.value} delta={k.tasaConsulta.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.tasaConsulta.coverage} spark={k.tasaConsulta.spark} sparkPeriods={k.tasaConsulta.sparkPeriods} color={c.series[2]} />
         <KpiCard label="Conversión" help={METRICS.conversion.help} unit="%" value={k.conversion.value} delta={k.conversion.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.conversion.coverage} spark={k.conversion.spark} sparkPeriods={k.conversion.sparkPeriods} color={c.series[2]} />
+        <KpiCard label="Tasa de cierre" help={METRICS.cierre.help} unit="%" value={k.cierre.value} delta={k.cierre.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.cierre.coverage} spark={k.cierre.spark} sparkPeriods={k.cierre.sparkPeriods} color={c.series[2]} />
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-5">
-        <ChartCard className="xl:col-span-3" title="Volumen de tráfico" subtitle="Visitas, clics, consultas y ventas por mes" exportName="trafico-mensual">
+        <ChartCard className="xl:col-span-3" title="Leads y ventas por mes" subtitle="Volumen mensual de leads recibidos y ventas cerradas" exportName="trafico-mensual">
           <TrendChart
             rows={rows}
             prevRows={prevRows}
             metrics={['visitas', 'clics', 'consultas', 'ventas']}
-            initial={['visitas', 'consultas']}
+            initial={['visitas', 'consultas', 'ventas']}
             height={290}
             onPointClick={(p) => openDetail({ period: p })}
             onApplyRange={(from, to) => setRange({ from, to }, 'custom')}
@@ -103,7 +104,7 @@ export function Traffic() {
 
       {chData.length > 0 ? (
         <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <ChartCard title="Adquisición por canal" subtitle={channels.mode === 'acumulado' ? 'Acumulado del archivo de fuentes' : labelRange(range)} exportName="adquisicion-canal">
+          <ChartCard title="Leads y cierres por red" subtitle={channels.mode === 'acumulado' ? 'Acumulado del archivo de fuentes' : labelRange(range)} exportName="adquisicion-canal">
             <div className="h-[280px]">
               <ResponsiveContainer>
                 <BarChart data={chData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>

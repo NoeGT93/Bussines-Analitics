@@ -6,6 +6,7 @@ export type CompanyId = string;
 export interface Company {
   id: CompanyId;
   name: string;
+  city?: string;
   shortName: string;
   color: string; // hex
   links?: { label: string; url: string }[];
@@ -118,7 +119,7 @@ export interface ImportLogEntry {
   note?: string;
 }
 
-export type ImportKind = 'monthly' | 'channels' | 'social' | 'posts' | 'costs';
+export type ImportKind = 'monthly' | 'channels' | 'social' | 'posts' | 'costs' | 'report';
 
 /**
  * Inversión o costo de marketing. `period` null = acumulado del mismo período que los datos por canal.
@@ -131,6 +132,27 @@ export interface CostRecord {
   canal: string | null;
   inversion: number;
   concepto?: string;
+  source: Provenance;
+}
+
+/** Corte diario de leads por fuente (por ejemplo, el reporte que se comparte por WhatsApp) */
+export interface LeadSnapshotRow {
+  fuente: string;
+  /** Leads recibidos ese día */
+  dia?: number;
+  /** Leads acumulados a la fecha del corte */
+  acumulado?: number;
+  /** Leads cerrados (ventas) acumulados */
+  cerrados?: number;
+}
+
+export interface LeadSnapshot {
+  id: string; // companyId:fecha
+  companyId: CompanyId;
+  fecha: string; // YYYY-MM-DD
+  /** Desde cuándo cuenta el acumulado “a la fecha”; si no se sabe, queda vacío */
+  desde?: string;
+  rows: LeadSnapshotRow[];
   source: Provenance;
 }
 
@@ -148,6 +170,7 @@ export interface Dataset {
   posts: SocialPost[];
   goals: Goal[];
   costs: CostRecord[];
+  leadSnapshots: LeadSnapshot[];
   settings: Record<CompanyId, CompanySettings>;
   /** Versión de los datos base cargados automáticamente */
   seedVersion?: number;

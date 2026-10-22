@@ -100,7 +100,7 @@ export function download(blob: Blob, name: string) {
 /* Reporte ejecutivo PDF                                               */
 /* ------------------------------------------------------------------ */
 
-const KPI_ORDER: SeriesMetric[] = ['ingresos', 'ventas', 'visitas', 'consultas', 'conversion', 'ticket', 'clientesNuevos'];
+const KPI_ORDER: SeriesMetric[] = ['ingresos', 'ventas', 'consultas', 'cierre', 'ticket', 'visitas', 'conversion', 'clientesNuevos'];
 
 export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, chartImage?: string) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -135,8 +135,8 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
 
   // KPIs
   const cardW = (W - 2 * M - 3 * 10) / 4;
-  KPI_ORDER.forEach((m, i) => {
-    const k = kpi(ds, scope, range, m);
+  const kpis = KPI_ORDER.map((m) => ({ m, k: kpi(ds, scope, range, m) })).filter((x) => x.k.value !== undefined).slice(0, 8);
+  kpis.forEach(({ m, k }, i) => {
     const cx = M + (i % 4) * (cardW + 10);
     const cy = y + Math.floor(i / 4) * 66;
     doc.setDrawColor(228, 231, 236);
@@ -159,7 +159,7 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
       doc.text('Sin período anterior comparable', cx + 10, cy + 48);
     }
   });
-  y += 2 * 66 + 10;
+  y += Math.ceil(kpis.length / 4) * 66 + 10;
 
   if (chartImage) {
     const imgW = W - 2 * M;
@@ -168,25 +168,24 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
     y += imgH + 14;
   }
 
-  // Tabla mensual
+  // Tabla mensual: solo columnas con datos, más inversión y ROI si existen
   const rows = rowsFor(ds, scope, range);
+  const roiM = roiByMonth(ds, scope, range);
+  const cols = (['ingresos', 'ventas', 'consultas', 'cierre', 'ticket', 'visitas', 'conversion'] as SeriesMetric[]).filter((m) => rows.some((r) => r.values[m] !== undefined));
+  const withRoi = roiM.some((m) => m.roi !== undefined);
   autoTable(doc, {
     startY: y,
-    head: [['Mes', 'Visitas', 'Consultas', 'Ventas', 'Ingresos', 'Conversión', 'Ticket']],
-    body: rows.map((r) => [
+    head: [['Mes', ...cols.map((m) => METRICS[m].label), ...(withRoi ? ['Inversión', 'ROI', 'CPL'] : [])]],
+    body: rows.map((r, i) => [
       labelLong(r.period),
-      fmt(r.values.visitas),
-      fmt(r.values.consultas),
-      fmt(r.values.ventas),
-      fmt(r.values.ingresos, 'Q'),
-      fmt(r.values.conversion, '%'),
-      fmt(r.values.ticket, 'Q2'),
+      ...cols.map((m) => fmt(r.values[m], METRICS[m].unit)),
+      ...(withRoi ? [fmt(roiM[i].inversion, 'Q'), fmt(roiM[i].roi, '%'), fmt(roiM[i].costoConsulta, 'Q2')] : []),
     ]),
     theme: 'plain',
     styles: { font: 'helvetica', fontSize: 8.5, textColor: ink, cellPadding: 5 },
     headStyles: { textColor: muted, fontStyle: 'bold', lineWidth: { bottom: 0.6 }, lineColor: [228, 231, 236] },
     bodyStyles: { lineWidth: { bottom: 0.3 }, lineColor: [238, 240, 243] },
-    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+    columnStyles: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [i + 1, { halign: 'right' as const }])),
     margin: { left: M, right: M },
   });
 
@@ -229,7 +228,7 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
     doc.setPage(p);
     doc.setFontSize(7.5);
     doc.setTextColor(...muted);
-    doc.text('Conversión = ventas ÷ visitas · Ticket = ingresos ÷ ventas · Cifras según los datos cargados en la plataforma.', M, 820);
+    doc.text('Cierre = ventas cerradas ÷ leads · Ticket = ingresos ÷ ventas · ROI = beneficio neto ÷ inversión × 100 · CPL = inversión ÷ leads', M, 820);
     doc.text(`${p} / ${pages}`, W - M, 820, { align: 'right' });
   }
   doc.save(`reporte-${slug(scopeName(ds, scope))}-${range.from}_${range.to}.pdf`);

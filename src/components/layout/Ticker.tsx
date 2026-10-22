@@ -51,13 +51,26 @@ export function MarketTicker() {
     }
     const ch = channelsFor(ds, scope, range);
     const totalVentas = ch.channels.reduce((s, c) => s + (c.values.ventas ?? 0), 0);
+    // Para el mes seleccionado, si hay datos por red de ese mes se muestran esos
+    const monthCh = lastRow ? channelsFor(ds, scope, { from: lastRow.period, to: lastRow.period }) : null;
+    if (monthCh && monthCh.mode === 'mensual') {
+      for (const c of monthCh.channels) {
+        out.push({
+          key: `ch-${c.canal}`,
+          label: c.canal,
+          value: `${fmt(c.values.consultas)} leads`,
+          note: `${fmt(c.values.ventas)} cerrados${c.cierre !== undefined ? `, ${fmt(c.cierre, '%')}` : ''}`,
+        });
+      }
+      return { items: out, last: lastRow?.period, prevPeriod: prevRow?.period };
+    }
     for (const c of ch.channels) {
       if (c.values.ventas === undefined || !totalVentas) continue;
       out.push({
         key: `ch-${c.canal}`,
         label: c.canal,
         value: `${fmt(c.values.ventas)} ventas`,
-        note: `${fmt(c.values.ventas / totalVentas, '%')} del total${c.conversion !== undefined ? `, conv. ${fmt(c.conversion, '%')}` : ''}`,
+        note: `${fmt(c.values.ventas / totalVentas, '%')} del total${c.cierre !== undefined ? `, cierre ${fmt(c.cierre, '%')}` : c.conversion !== undefined ? `, conv. ${fmt(c.conversion, '%')}` : ''}`,
       });
     }
     return { items: out, last: lastRow?.period, prevPeriod: prevRow?.period };

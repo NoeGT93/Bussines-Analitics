@@ -26,7 +26,7 @@ export interface KpiCardProps {
   higherIsBetter?: boolean;
 }
 
-function LiveReadout({ spark, periods, unit }: { spark: (number | null)[]; periods: string[]; unit: Unit }) {
+function LiveReadout({ spark, periods, unit, higherIsBetter = true }: { spark: (number | null)[]; periods: string[]; unit: Unit; higherIsBetter?: boolean }) {
   const si = useSparkIndex(spark, periods);
   if (!si) return null;
   const v = spark[si.dataIndex]!;
@@ -48,7 +48,7 @@ function LiveReadout({ spark, periods, unit }: { spark: (number | null)[]; perio
         <span className="text-faint">{labelShort(periods[si.dataIndex])}</span>
         <span className="font-medium text-muted">{fmt(v, unit)}</span>
         {d !== undefined && (
-          <span className={up ? 'text-up' : down ? 'text-down' : 'text-faint'}>
+          <span className={up ? (higherIsBetter ? 'text-up' : 'text-down') : down ? (higherIsBetter ? 'text-down' : 'text-up') : 'text-faint'}>
             {up ? '▲' : down ? '▼' : '■'} {isRate ? pp(Math.abs(d)).replace('+', '') : pct(Math.abs(d)).replace('+', '')}
           </span>
         )}
@@ -58,6 +58,8 @@ function LiveReadout({ spark, periods, unit }: { spark: (number | null)[]; perio
 }
 
 export function KpiCard(p: KpiCardProps) {
+  // Indicadores sin datos en este negocio no se muestran (salvo que tengan un texto de pendiente)
+  if (p.value === undefined && !p.pending) return null;
   const showLive = !!(p.sparkPeriods && p.spark && p.value !== undefined && p.spark.some((v) => v !== null));
   const partial = p.coverage && p.coverage.have > 0 && p.coverage.have < p.coverage.total;
   const empty = p.value === undefined;
@@ -78,7 +80,7 @@ export function KpiCard(p: KpiCardProps) {
           <AnimatedNumber value={p.value} unit={p.unit} className="block whitespace-nowrap text-[19px] font-semibold leading-[26px] sm:text-[24px] tracking-[-0.02em] text-ink" />
         )}
         <div className="mt-1.5 h-[18px] overflow-hidden text-[11.5px] text-faint">
-          {showLive ? <LiveReadout spark={p.spark!} periods={p.sparkPeriods!} unit={p.unit} /> : <span className="block truncate">{empty ? '\u00a0' : p.secondary ?? (p.delta !== undefined ? p.compareLabel : partial ? `${p.coverage!.have} de ${p.coverage!.total} meses con dato` : 'Sin período anterior comparable')}</span>}
+          {showLive ? <LiveReadout spark={p.spark!} periods={p.sparkPeriods!} unit={p.unit} higherIsBetter={p.higherIsBetter} /> : <span className="block truncate">{empty ? '\u00a0' : p.secondary ?? (p.delta !== undefined ? p.compareLabel : partial ? `${p.coverage!.have} de ${p.coverage!.total} meses con dato` : 'Sin período anterior comparable')}</span>}
         </div>
       </div>
       <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline data={p.spark} periods={p.sparkPeriods} color={p.color} height={30} />}</div>

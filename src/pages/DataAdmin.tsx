@@ -31,12 +31,13 @@ import {
   type SheetAnalysis,
 } from '../lib/importer';
 import { activeRepository, LocalStorageRepository } from '../lib/repository';
+import { LeadSnapshotEditor } from '../components/data/LeadSnapshot';
 import { exportBackup } from '../lib/exporter';
 import { fmt } from '../lib/format';
 import { labelLong, shift } from '../lib/periods';
 import type { ChannelRecord, Company, CostRecord, Dataset, ImportKind, MonthlyRecord, SocialPost, SocialRecord } from '../types';
 
-type Tab = 'import' | 'records' | 'companies' | 'storage' | 'log';
+type Tab = 'import' | 'snapshots' | 'records' | 'companies' | 'storage' | 'log';
 
 export function DataAdmin() {
   const [tab, setTab] = useState<Tab>('import');
@@ -50,6 +51,7 @@ export function DataAdmin() {
           label="Sección"
           options={[
             { value: 'import', label: 'Importar' },
+            { value: 'snapshots', label: 'Corte de leads' },
             { value: 'records', label: 'Registros' },
             { value: 'companies', label: 'Empresas' },
             { value: 'storage', label: 'Almacenamiento' },
@@ -58,6 +60,7 @@ export function DataAdmin() {
         />
       </div>
       {tab === 'import' && <ImportPanel />}
+      {tab === 'snapshots' && <LeadSnapshotEditor />}
       {tab === 'records' && <RecordsPanel />}
       {tab === 'companies' && <CompaniesPanel />}
       {tab === 'storage' && <StoragePanel />}
@@ -150,6 +153,12 @@ function ImportPanel() {
       if (b.kind === 'social') upsertSocial(b.records as SocialRecord[], name, companyId);
       if (b.kind === 'posts') upsertPosts(b.records as SocialPost[], name, companyId);
       if (b.kind === 'costs') upsertCosts(b.records as CostRecord[], name, companyId);
+      if (b.kind === 'report') {
+        const recs = b.records as unknown as Record<string, unknown>[];
+        upsertMonthly(recs.filter((r) => !('canal' in r) && !('inversion' in r)) as unknown as MonthlyRecord[], name, companyId);
+        upsertChannels(recs.filter((r) => 'canal' in r && !('inversion' in r)) as unknown as ChannelRecord[], name, companyId);
+        upsertCosts(recs.filter((r) => 'inversion' in r) as unknown as CostRecord[], name, companyId);
+      }
     });
     notify(`${total} registros importados en ${ds.companies.find((c) => c.id === companyId)?.name}.`);
     setSheets([]);
@@ -206,7 +215,7 @@ function ImportPanel() {
             >
               <div className="mb-3 grid h-10 w-10 place-items-center rounded-xl bg-sunken text-muted">{loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-faint border-t-electric" /> : <Upload size={18} />}</div>
               <p className="text-[13.5px] font-medium text-ink">{file ? file.name : 'Arrastra un archivo Excel o CSV'}</p>
-              <p className="mt-1 text-[12px] text-muted">Se detectan automáticamente las hojas Datos_Mensuales y Fuentes_Trafico. Nada se guarda hasta que confirmes.</p>
+              <p className="mt-1 text-[12px] text-muted">Reconoce el reporte mensual por bloques (inversión, venta y leads por red) y tablas con encabezados. Nada se guarda hasta que confirmes.</p>
               <div className="mt-4 flex gap-2">
                 <Button variant="primary" onClick={() => input.current?.click()}>
                   <FileSpreadsheet size={15} /> {file ? 'Elegir otro archivo' : 'Elegir archivo'}
@@ -332,7 +341,7 @@ function SheetCard({ s, build, onChange }: { s: SheetState; build: BuildResult |
   const warns = issues.filter((i) => i.level === 'warn').length;
   const [showAll, setShowAll] = useState(false);
 
-  const previewRecords = (build?.records ?? []).slice(0, 8) as unknown as Record<string, unknown>[];
+  const previewRecords = a.kind === 'report' ? [] : ((build?.records ?? []).slice(0, 8) as unknown as Record<string, unknown>[]);
   const mappedSpecs = specs.filter((sp) => (a.mapping[sp.key] ?? -1) >= 0);
 
   return (
@@ -370,7 +379,7 @@ function SheetCard({ s, build, onChange }: { s: SheetState; build: BuildResult |
         {s.open && s.include && a.kind && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
             <div className="border-t border-line px-5 py-4">
-              <div className="mb-2 text-[12px] font-medium text-ink">Columnas</div>
+              {a.kind !== 'report' && <div className="mb-2 text-[12px] font-medium text-ink">Columnas</div>}
               <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
                 {specs.map((sp) => (
                   <label key={sp.key} className="text-[11.5px] text-muted">
@@ -394,7 +403,47 @@ function SheetCard({ s, build, onChange }: { s: SheetState; build: BuildResult |
                   </label>
                 ))}
               </div>
-              <p className="mt-2 text-[11.5px] text-faint">Encabezados detectados en la fila {a.headerRow + 1}.</p>
+              {a.kind !== 'report' && <p className="mt-2 text-[11.5px] text-faint">Encabezados detectados en la fila {a.headerRow + 1}.</p>}
+
+              {a.kind === 'report' && build && (
+                <>
+                  <div className="mb-2 mt-1 text-[12px] font-medium text-ink">Meses detectados</div>
+                  <div className="scroll-thin overflow-x-auto rounded-lg border border-line">
+                    <table className="w-full min-w-[560px] text-[12px]">
+                      <thead className="bg-sunken text-left text-faint">
+                        <tr>
+                          {['Mes', 'Inversión', 'Venta', 'Leads', 'Cerrados', 'Cierre', 'Redes'].map((h) => (
+                            <th key={h} className="px-3 py-1.5 font-medium">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(build.records as unknown as Record<string, unknown>[])
+                          .filter((r) => !('canal' in r) && !('inversion' in r))
+                          .sort((x, y) => String(x.period).localeCompare(String(y.period)))
+                          .map((r) => {
+                            const period = String(r.period);
+                            const inv = (build.records as unknown as Record<string, unknown>[]).find((x) => 'inversion' in x && x.period === period)?.inversion as number | undefined;
+                            const nets = (build.records as unknown as Record<string, unknown>[]).filter((x) => 'canal' in x && !('inversion' in x) && x.period === period).length;
+                            const leads = r.consultas as number | undefined;
+                            const cer = r.ventas as number | undefined;
+                            return (
+                              <tr key={period} className="border-t border-line/60">
+                                <td className="px-3 py-1.5 text-ink">{labelLong(period)}</td>
+                                <td className="tnum px-3 py-1.5 text-ink">{fmt(inv, 'Q')}</td>
+                                <td className="tnum px-3 py-1.5 text-ink">{fmt(r.ingresos as number | undefined, 'Q')}</td>
+                                <td className="tnum px-3 py-1.5 text-ink">{fmt(leads)}</td>
+                                <td className="tnum px-3 py-1.5 text-ink">{fmt(cer)}</td>
+                                <td className="tnum px-3 py-1.5 text-ink">{leads && cer !== undefined ? fmt(cer / leads, '%') : '—'}</td>
+                                <td className="tnum px-3 py-1.5 text-muted">{nets}</td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
 
               {previewRecords.length > 0 && (
                 <>
@@ -829,11 +878,11 @@ function StoragePanel() {
       <Card className="p-5">
         <div className="flex items-center gap-2.5">
           <FlaskConical size={17} className="text-muted" />
-          <div className="text-[13.5px] font-medium text-ink">Datos base de Copicentro OVNI</div>
+          <div className="text-[13.5px] font-medium text-ink">Reporte inicial de Spartan Gym</div>
           {demo && <Tag tone="warn">Activos</Tag>}
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
-          Las cifras de Dashboard_Copicentro.xlsx, que el propio archivo describe como ejemplos simulados. Se marcan como demostrativas en toda la interfaz y en los reportes, y nunca reemplazan datos que importes.
+          Ventas, inversión y leads por red de enero a septiembre de 2026 (REPORTE_DASHABOARD.xlsx) y el corte de leads del 20 de octubre. Restaurarlo solo agrega lo que falte; nunca reemplaza datos que hayas importado o editado.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {demo ? (
@@ -841,8 +890,8 @@ function StoragePanel() {
               <Trash2 size={15} /> Quitar datos base
             </Button>
           ) : (
-            <Button variant="outline" onClick={() => (loadDemo(), notify('Datos base cargados en Copicentro OVNI.'))}>
-              <FlaskConical size={15} /> Cargar datos base
+            <Button variant="outline" onClick={() => (loadDemo(), notify('Reporte inicial restaurado.'))}>
+              <FlaskConical size={15} /> Restaurar reporte inicial
             </Button>
           )}
         </div>

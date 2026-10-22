@@ -5,12 +5,14 @@ import { monthsBetween } from './periods';
 /**
  * ROI y costos de retorno.
  * Fórmulas (todas en quetzales):
- *  - Retorno = ingresos × margen bruto (si se define margen); si no, se usan los ingresos completos.
- *  - ROI = (retorno − inversión) ÷ inversión
+ *  - ROI = beneficio neto ÷ inversión × 100
+ *    Beneficio neto = ventas × margen bruto − inversión. Sin margen definido: ventas − inversión
+ *    (así lo calcula el reporte del negocio; no descuenta renta, planilla ni otros gastos).
  *  - ROAS = ingresos ÷ inversión
  *  - Costo por venta (CPA) = inversión ÷ ventas
  *  - Costo por cliente nuevo (CAC) = inversión ÷ clientes nuevos
- *  - Costo por consulta = inversión ÷ clics/consultas
+ *  - CPL (costo por lead) = inversión ÷ leads recibidos
+ *  - CPM = inversión en anuncios ÷ impresiones × 1,000; CPC = inversión ÷ clics; CTR = clics ÷ impresiones
  *  - Costo por quetzal generado = inversión ÷ ingresos
  *  - Ventas para recuperar la inversión = inversión ÷ (ticket promedio × margen)
  */
@@ -27,13 +29,17 @@ export interface RoiMetrics {
   costoPorQuetzal?: number;
   ventasEquilibrio?: number;
   ventas?: number;
+  leads?: number;
+  /** Beneficio neto = retorno − inversión */
+  beneficio?: number;
 }
 
 function compute(inv: number | undefined, x: { ingresos?: number; ventas?: number; clientes?: number; consultas?: number }, margen?: number): RoiMetrics {
   const m = margen ?? 1;
-  const out: RoiMetrics = { inversion: inv, ingresos: x.ingresos, ventas: x.ventas };
+  const out: RoiMetrics = { inversion: inv, ingresos: x.ingresos, ventas: x.ventas, leads: x.consultas };
   if (x.ingresos !== undefined) out.retorno = x.ingresos * m;
   if (!inv || inv <= 0) return out;
+  if (out.retorno !== undefined) out.beneficio = out.retorno - inv;
   if (x.ingresos !== undefined) {
     out.roi = (x.ingresos * m - inv) / inv;
     out.roas = x.ingresos / inv;
@@ -59,6 +65,7 @@ export function marginFor(ds: Dataset, scope: CompanyScope): number | undefined 
 export interface ChannelRoi extends RoiMetrics {
   canal: string;
   consultas?: number;
+  cierre?: number;
 }
 
 export function roiByChannel(ds: Dataset, scope: CompanyScope, range: DateRange) {
@@ -72,8 +79,9 @@ export function roiByChannel(ds: Dataset, scope: CompanyScope, range: DateRange)
     const inv = own.length ? own.reduce((s, x) => s + x.inversion, 0) : undefined;
     return {
       canal: c.canal,
-      consultas: c.values.clics ?? c.values.consultas,
-      ...compute(inv, { ingresos: c.values.ingresos, ventas: c.values.ventas, consultas: c.values.clics ?? c.values.consultas }, margen),
+      consultas: c.values.consultas ?? c.values.clics,
+      cierre: c.cierre,
+      ...compute(inv, { ingresos: c.values.ingresos, ventas: c.values.ventas, consultas: c.values.consultas ?? c.values.clics }, margen),
     };
   });
   // Costos de canales que no existen en los datos por canal
@@ -118,14 +126,36 @@ export function roiTotal(ds: Dataset, scope: CompanyScope, range: DateRange): Ro
   };
 }
 
-export const ROI_GLOSSARY: { term: string; formula: string; reading: string }[] = [
-  { term: 'Inversión', formula: 'Lo que se pagó en publicidad, pauta, diseño o comisiones', reading: 'Es el costo que se quiere recuperar. Sin este dato no existe ROI.' },
-  { term: 'ROI', formula: '(Retorno − inversión) ÷ inversión', reading: '50 % significa que por cada Q 1 invertido se recuperó Q 1 y se ganaron Q 0.50 extra. Negativo = no se recuperó la inversión.' },
-  { term: 'ROAS', formula: 'Ingresos ÷ inversión', reading: '4× significa Q 4 de ingresos por cada Q 1 de publicidad. No descuenta costos del producto.' },
-  { term: 'Costo por quetzal generado', formula: 'Inversión ÷ ingresos', reading: 'Q 0.25 significa que cada quetzal vendido costó 25 centavos de publicidad. Es el inverso del ROAS.' },
-  { term: 'Costo por venta (CPA)', formula: 'Inversión ÷ ventas', reading: 'Cuánto cuesta en publicidad conseguir cada venta.' },
-  { term: 'Costo por cliente nuevo (CAC)', formula: 'Inversión ÷ clientes nuevos', reading: 'Cuánto cuesta atraer a cada cliente que compra por primera vez.' },
-  { term: 'Costo por consulta', formula: 'Inversión ÷ clics o consultas', reading: 'Cuánto cuesta cada persona que pregunta o hace clic.' },
-  { term: 'Ventas para recuperar la inversión', formula: 'Inversión ÷ (ticket promedio × margen)', reading: 'Punto de equilibrio: cuántas ventas hacen falta para pagar lo invertido.' },
-  { term: 'Margen bruto', formula: '(Precio − costo del producto o servicio) ÷ precio', reading: 'Si se define, el ROI se calcula sobre la utilidad y no sobre los ingresos completos, que es lo correcto.' },
+/** Métricas de anuncios: requieren impresiones y clics (Meta Ads, TikTok Ads) importados en Redes sociales */
+export function adMetrics(ds: Dataset, scope: CompanyScope, range: DateRange) {
+  const ids = new Set(companyIdsFor(ds, scope));
+  const months = new Set(monthsBetween(range));
+  const recs = ds.social.filter((r) => ids.has(r.companyId) && months.has(r.period));
+  const sum = (k: 'impresiones' | 'clicsEnlace' | 'inversion') => {
+    const v = recs.map((r) => r[k]).filter((x): x is number => x !== undefined);
+    return v.length ? v.reduce((a, b) => a + b, 0) : undefined;
+  };
+  const imp = sum('impresiones');
+  const clics = sum('clicsEnlace');
+  const inv = sum('inversion');
+  return {
+    impresiones: imp,
+    clics,
+    inversion: inv,
+    cpm: inv !== undefined && imp ? (inv / imp) * 1000 : undefined,
+    cpc: inv !== undefined && clics ? inv / clics : undefined,
+    ctr: clics !== undefined && imp ? clics / imp : undefined,
+  };
+}
+
+export const ROI_GLOSSARY: { term: string; formula: string; reading: string; needs?: string }[] = [
+  { term: 'ROI', formula: 'Beneficio neto ÷ inversión × 100', reading: 'Si la inversión terminó siendo rentable. Beneficio neto = ventas − inversión (o ventas × margen − inversión si defines el margen). 500 % = por cada Q 1 invertido regresaron Q 5 de beneficio.' },
+  { term: 'CPL', formula: 'Inversión ÷ leads recibidos', reading: 'Costo por contacto: cuánto cuesta cada persona que escribe, llena un formulario o pregunta.' },
+  { term: 'CPA', formula: 'Inversión ÷ ventas cerradas', reading: 'Costo por acción o conversión: cuánto cuesta cada lead que termina inscribiéndose.' },
+  { term: 'CPM', formula: 'Inversión en anuncios ÷ impresiones × 1,000', reading: 'Costo por mil impresiones: cuánto cuesta que el anuncio se muestre mil veces.', needs: 'Impresiones del administrador de anuncios' },
+  { term: 'CPC', formula: 'Inversión en anuncios ÷ clics', reading: 'Costo por clic en el anuncio.', needs: 'Clics del administrador de anuncios' },
+  { term: 'CTR', formula: 'Clics ÷ impresiones', reading: 'Qué porcentaje de quienes vieron el anuncio hizo clic.', needs: 'Impresiones y clics' },
+  { term: 'ROAS', formula: 'Ventas ÷ inversión', reading: 'Quetzales vendidos por cada quetzal invertido. 6× = Q 6 de venta por cada Q 1 de publicidad.' },
+  { term: 'Costo por quetzal vendido', formula: 'Inversión ÷ ventas (Q)', reading: 'Cuántos centavos de publicidad costó cada quetzal vendido. Es el inverso del ROAS.' },
+  { term: 'Ventas para recuperar la inversión', formula: 'Inversión ÷ (ticket promedio × margen)', reading: 'Punto de equilibrio: cuántas inscripciones hacen falta para pagar lo invertido.' },
 ];

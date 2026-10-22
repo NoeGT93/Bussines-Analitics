@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react';
-import { BadgePercent, Banknote, Eye, MessageSquare, Receipt, ShoppingBag, TrendingUp, UserPlus } from 'lucide-react';
+import { BadgePercent, Banknote, Coins, Eye, MessageSquare, MousePointerClick, Receipt, ShoppingBag, TrendingUp, UserPlus } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { KpiCard } from '../components/kpi/KpiCard';
+import { KpiCard, type KpiCardProps } from '../components/kpi/KpiCard';
+import { LeadSnapshotCard } from '../components/data/LeadSnapshot';
+import { roiByMonth, roiTotal } from '../lib/roi';
+import type { Unit } from '../lib/format';
+import type { PageId } from '../store/useStore';
 import { ChartCard, useChartColors } from '../components/charts/kit';
 import { Donut, Funnel, TrendChart } from '../components/charts/Charts';
 import { Card, CardHeader, PageHeader, Segmented } from '../components/ui';
@@ -10,31 +14,97 @@ import { channelsFor, kpi, METRICS, totalOf, type SeriesMetric } from '../lib/me
 import { generateInsights } from '../lib/insights';
 import { useScopeRows } from '../lib/hooks';
 import { labelRange, previousRange } from '../lib/periods';
-import { fmt } from '../lib/format';
 
 export function Overview() {
   const { ds, scope, range, setPage, openDetail, setRange } = useStore();
   const { rows, prevRows, hasData, scopeLabel } = useScopeRows();
   const c = useChartColors();
-  const [chMetric, setChMetric] = useState<'ingresos' | 'ventas'>('ingresos');
+  const [chPick, setChMetric] = useState<'ingresos' | 'ventas' | 'consultas' | null>(null);
 
-  const k = useMemo(() => {
-    const get = (m: SeriesMetric) => kpi(ds, scope, range, m);
-    return {
-      ingresos: get('ingresos'),
-      ventas: get('ventas'),
-      visitas: get('visitas'),
-      clics: get('clics'),
-      consultas: get('consultas'),
-      conversion: get('conversion'),
-      ticket: get('ticket'),
-      clientesNuevos: get('clientesNuevos'),
-    };
-  }, [ds, scope, range]);
+
+  const roi = useMemo(() => {
+    const total = roiTotal(ds, scope, range);
+    const prev = roiTotal(ds, scope, previousRange(range));
+    const months = roiByMonth(ds, scope, range);
+    const prevFull = prev.hasCosts && prevRows.every((r) => Object.keys(r.values).length > 0);
+    return { total, prev: prevFull ? prev : null, months };
+  }, [ds, scope, range, prevRows]);
+
+  const cards = useMemo(() => {
+    const prevLabel = `vs. ${labelRange(previousRange(range))}`;
+    type Base = { key: SeriesMetric; label: string; icon: JSX.Element; unit: Unit; color: string; page: PageId; pp?: boolean };
+    const base: Base[] = [
+      { key: 'ingresos', label: 'Ingresos', icon: <Banknote size={14} />, unit: 'Q', color: c.series[0], page: 'sales' },
+      { key: 'ventas', label: 'Ventas cerradas', icon: <ShoppingBag size={14} />, unit: 'n', color: c.series[0], page: 'sales' },
+      { key: 'consultas', label: 'Leads', icon: <MessageSquare size={14} />, unit: 'n', color: c.series[1], page: 'traffic' },
+      { key: 'cierre', label: 'Tasa de cierre', icon: <BadgePercent size={14} />, unit: '%', color: c.series[2], page: 'traffic', pp: true },
+      { key: 'ticket', label: 'Ticket promedio', icon: <Receipt size={14} />, unit: 'Q2', color: c.series[2], page: 'sales' },
+      { key: 'visitas', label: 'Visitas web', icon: <Eye size={14} />, unit: 'n', color: c.series[1], page: 'traffic' },
+      { key: 'clics', label: 'Clics', icon: <MousePointerClick size={14} />, unit: 'n', color: c.series[1], page: 'traffic' },
+      { key: 'conversion', label: 'Conversión web', icon: <BadgePercent size={14} />, unit: '%', color: c.series[2], page: 'traffic', pp: true },
+      { key: 'clientesNuevos', label: 'Clientes nuevos', icon: <UserPlus size={14} />, unit: 'n', color: c.series[3], page: 'sales' },
+    ];
+    const out: (KpiCardProps & { key: string })[] = [];
+    for (const b of base) {
+      const r = kpi(ds, scope, range, b.key);
+      if (r.value === undefined) continue;
+      out.push({
+        key: b.key,
+        label: b.label,
+        icon: b.icon,
+        help: METRICS[b.key].help,
+        unit: b.unit,
+        value: r.value,
+        delta: r.delta,
+        deltaKind: b.pp ? 'pp' : 'rel',
+        compareLabel: prevLabel,
+        coverage: r.coverage,
+        spark: r.spark,
+        sparkPeriods: r.sparkPeriods,
+        color: b.color,
+        onOpen: () => setPage(b.page),
+      } as KpiCardProps & { key: string });
+    }
+    const t = roi.total;
+    const p = roi.prev;
+    const rel = (a?: number, b?: number) => (a !== undefined && b ? (a - b) / Math.abs(b) : undefined);
+    const roiCards: (KpiCardProps & { key: string })[] = [];
+    if (t.roi !== undefined) {
+      roiCards.push({
+        key: 'roi', label: 'ROI', icon: <TrendingUp size={14} />, unit: '%', value: t.roi,
+        help: 'Beneficio neto ÷ inversión × 100. Beneficio neto = ventas − inversión (o ventas × margen − inversión si se define el margen en ROI y costos).',
+        delta: p?.roi !== undefined ? t.roi - p.roi : undefined, deltaKind: 'pp', compareLabel: prevLabel,
+        spark: roi.months.map((m) => m.roi ?? null), sparkPeriods: roi.months.map((m) => m.period), color: c.up, onOpen: () => setPage('roi'),
+      } as KpiCardProps & { key: string });
+    }
+    if (t.costoConsulta !== undefined) {
+      roiCards.push({
+        key: 'cpl', label: 'CPL', icon: <Coins size={14} />, unit: 'Q2', value: t.costoConsulta, higherIsBetter: false,
+        help: 'Costo por lead: inversión ÷ leads recibidos.', delta: rel(t.costoConsulta, p?.costoConsulta), compareLabel: prevLabel,
+        spark: roi.months.map((m) => m.costoConsulta ?? null), sparkPeriods: roi.months.map((m) => m.period), color: c.warn, onOpen: () => setPage('roi'),
+      } as KpiCardProps & { key: string });
+    }
+    if (t.cpa !== undefined) {
+      roiCards.push({
+        key: 'cpa', label: 'CPA', icon: <Coins size={14} />, unit: 'Q2', value: t.cpa, higherIsBetter: false,
+        help: 'Costo por venta cerrada: inversión ÷ ventas cerradas.', delta: rel(t.cpa, p?.cpa), compareLabel: prevLabel,
+        spark: roi.months.map((m) => m.cpa ?? null), sparkPeriods: roi.months.map((m) => m.period), color: c.warn, onOpen: () => setPage('roi'),
+      } as KpiCardProps & { key: string });
+    }
+    const room = Math.max(4, 8 - roiCards.length);
+    const list = [...out.slice(0, room), ...roiCards];
+    if (list.length < 8 && !roiCards.length) {
+      const g = kpi(ds, scope, range, 'ingresos');
+      list.push({
+        key: 'crec', label: 'Crecimiento', icon: <TrendingUp size={14} />, unit: '%', value: g.delta,
+        help: 'Variación de ingresos frente al período anterior de igual duración.', pending: 'Sin período anterior completo', color: c.series[0], onOpen: () => setPage('compare'),
+      } as KpiCardProps & { key: string });
+    }
+    return list;
+  }, [ds, scope, range, roi, c, setPage]);
 
   const insights = useMemo(() => generateInsights({ ds, scope, range }).slice(0, 4), [ds, scope, range]);
   const channels = useMemo(() => channelsFor(ds, scope, range), [ds, scope, range]);
-  const prevLabel = `vs. ${labelRange(previousRange(range))}`;
 
   if (!hasData) {
     return (
@@ -46,6 +116,9 @@ export function Overview() {
   }
 
   const tot = (m: SeriesMetric) => totalOf(rows, m).value;
+  const chOptions = (['ingresos', 'ventas', 'consultas'] as const).filter((m) => channels.channels.some((x) => (x.values[m] ?? 0) > 0));
+  const chMetric = chPick && chOptions.includes(chPick) ? chPick : chOptions[0] ?? 'ingresos';
+  const chLabel = { ingresos: 'Ingresos', ventas: 'Cerradas', consultas: 'Leads' } as const;
   const donutData = channels.channels.filter((x) => (x.values[chMetric] ?? 0) > 0).map((x) => ({ name: x.canal, value: x.values[chMetric]! }));
 
   return (
@@ -53,128 +126,9 @@ export function Overview() {
       <PageHeader title="Resumen ejecutivo" description={`${scopeLabel}, ${labelRange(range)}. Toca un indicador para ver su análisis.`} />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-        <KpiCard
-          label="Ingresos"
-          icon={<Banknote size={14} />}
-          help={METRICS.ingresos.help}
-          unit="Q"
-          value={k.ingresos.value}
-          delta={k.ingresos.delta}
-          compareLabel={prevLabel}
-          coverage={k.ingresos.coverage}
-          spark={k.ingresos.spark} sparkPeriods={k.ingresos.sparkPeriods}
-          color={c.series[0]}
-          onOpen={() => setPage('sales')}
-        />
-        <KpiCard
-          label="Ventas"
-          icon={<ShoppingBag size={14} />}
-          help={METRICS.ventas.help}
-          unit="n"
-          value={k.ventas.value}
-          delta={k.ventas.delta}
-          compareLabel={prevLabel}
-          coverage={k.ventas.coverage}
-          spark={k.ventas.spark} sparkPeriods={k.ventas.sparkPeriods}
-          color={c.series[0]}
-          onOpen={() => setPage('sales')}
-        />
-        <KpiCard
-          label="Visitas web"
-          icon={<Eye size={14} />}
-          help={METRICS.visitas.help}
-          unit="n"
-          value={k.visitas.value}
-          delta={k.visitas.delta}
-          compareLabel={prevLabel}
-          coverage={k.visitas.coverage}
-          spark={k.visitas.spark} sparkPeriods={k.visitas.sparkPeriods}
-          color={c.series[1]}
-          onOpen={() => setPage('traffic')}
-        />
-        {k.consultas.value === undefined && k.clics.value !== undefined ? (
-          <KpiCard
-            label="Clics / consultas"
-            icon={<MessageSquare size={14} />}
-            help="El archivo registra clics y consultas en una sola columna, así que se muestran juntos."
-            unit="n"
-            value={k.clics.value}
-            delta={k.clics.delta}
-            compareLabel={prevLabel}
-            coverage={k.clics.coverage}
-            spark={k.clics.spark} sparkPeriods={k.clics.sparkPeriods}
-            color={c.series[1]}
-            onOpen={() => setPage('traffic')}
-          />
-        ) : (
-          <KpiCard
-            label="Consultas"
-            icon={<MessageSquare size={14} />}
-            help={`${METRICS.consultas.help} Debajo se muestran los clics del mismo período.`}
-            unit="n"
-            value={k.consultas.value}
-            delta={k.consultas.delta}
-            secondary={k.clics.value !== undefined ? `${fmt(k.clics.value)} clics en el período` : undefined}
-            compareLabel={prevLabel}
-            coverage={k.consultas.coverage}
-            spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods}
-            color={c.series[1]}
-            onOpen={() => setPage('traffic')}
-          />
-        )}
-        <KpiCard
-          label="Conversión"
-          icon={<BadgePercent size={14} />}
-          help={METRICS.conversion.help}
-          unit="%"
-          value={k.conversion.value}
-          delta={k.conversion.delta}
-          deltaKind="pp"
-          compareLabel={prevLabel}
-          coverage={k.conversion.coverage}
-          spark={k.conversion.spark} sparkPeriods={k.conversion.sparkPeriods}
-          color={c.series[2]}
-          onOpen={() => setPage('traffic')}
-        />
-        <KpiCard
-          label="Ticket promedio"
-          icon={<Receipt size={14} />}
-          help={METRICS.ticket.help}
-          unit="Q2"
-          value={k.ticket.value}
-          delta={k.ticket.delta}
-          compareLabel={prevLabel}
-          coverage={k.ticket.coverage}
-          spark={k.ticket.spark} sparkPeriods={k.ticket.sparkPeriods}
-          color={c.series[2]}
-          onOpen={() => setPage('sales')}
-        />
-        <KpiCard
-          label="Clientes nuevos"
-          icon={<UserPlus size={14} />}
-          help={METRICS.clientesNuevos.help}
-          unit="n"
-          value={k.clientesNuevos.value}
-          delta={k.clientesNuevos.delta}
-          compareLabel={prevLabel}
-          coverage={k.clientesNuevos.coverage}
-          spark={k.clientesNuevos.spark} sparkPeriods={k.clientesNuevos.sparkPeriods}
-          color={c.series[3]}
-          onOpen={() => setPage('sales')}
-        />
-        <KpiCard
-          label="Crecimiento"
-          icon={<TrendingUp size={14} />}
-          help="Variación de ingresos frente al período anterior de igual duración. Solo se calcula si ambos períodos tienen todos sus meses con dato."
-          unit="%"
-          value={k.ingresos.delta}
-          delta={undefined}
-          secondary={k.ingresos.prev !== undefined ? `Antes: ${fmt(k.ingresos.prev, 'Q')} (${labelRange(previousRange(range))})` : undefined}
-          pending="Sin período anterior completo"
-          spark={rows.map((r, i) => (i && r.values.ingresos !== undefined && rows[i - 1].values.ingresos ? r.values.ingresos / rows[i - 1].values.ingresos! - 1 : null))}
-          color={c.series[0]}
-          onOpen={() => setPage('compare')}
-        />
+        {cards.map(({ key, ...cd }) => (
+          <KpiCard key={key} {...cd} />
+        ))}
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
@@ -203,27 +157,18 @@ export function Overview() {
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <ChartCard
-          title="Contribución por canal"
+          title="Contribución por red"
           subtitle={channels.mode === 'mensual' ? labelRange(range) : channels.mode === 'acumulado' ? 'Acumulado del archivo de fuentes' : undefined}
           exportName="contribucion-canal"
           actions={
-            donutData.length > 0 && (
-              <Segmented
-                size="sm"
-                label="Métrica"
-                value={chMetric}
-                onChange={setChMetric}
-                options={[
-                  { value: 'ingresos', label: 'Ingresos' },
-                  { value: 'ventas', label: 'Ventas' },
-                ]}
-              />
+            chOptions.length > 1 && (
+              <Segmented size="sm" label="Métrica" value={chMetric} onChange={setChMetric} options={chOptions.map((m) => ({ value: m, label: chLabel[m] }))} />
             )
           }
         >
           {donutData.length ? (
             <div className="px-2">
-              <Donut data={donutData} unit={chMetric === 'ingresos' ? 'Q' : 'n'} centerLabel={chMetric === 'ingresos' ? 'ingresos por canal' : 'ventas por canal'} />
+              <Donut data={donutData} unit={chMetric === 'ingresos' ? 'Q' : 'n'} centerLabel={chMetric === 'ingresos' ? 'ingresos por red' : chMetric === 'ventas' ? 'cerradas por red' : 'leads por red'} />
             </div>
           ) : (
             <p className="px-2 py-8 text-center text-[12.5px] text-muted">
@@ -233,24 +178,27 @@ export function Overview() {
           {channels.mode === 'acumulado' && donutData.length > 0 && <SourceNote>{channels.sourceNote} Sus totales pueden no coincidir con los datos mensuales.</SourceNote>}
         </ChartCard>
 
-        <ChartCard title="Embudo comercial" subtitle={`${labelRange(range)}. Cada etapa usa el mismo período.`} help="Solo se muestran etapas con datos compatibles. Oportunidades no se registra todavía en el archivo." exportName="embudo">
+        <ChartCard title="Embudo comercial" subtitle={`${labelRange(range)}. Cada etapa usa el mismo período.`} help="Solo se muestran las etapas que tienen datos en el período. Las etapas sin registro (visitas web, oportunidades) se omiten." exportName="embudo">
           <div className="px-2 pt-1">
             <Funnel
               stages={[
                 { label: 'Visitas web', value: tot('visitas') },
-                tot('consultas') !== undefined ? { label: 'Consultas', value: tot('consultas') } : { label: 'Clics / consultas', value: tot('clics') },
-                { label: 'Oportunidades', value: undefined, note: 'Sin registro de oportunidades' },
-                { label: 'Ventas', value: tot('ventas') },
-              ]}
+                tot('consultas') !== undefined ? { label: 'Leads', value: tot('consultas') } : { label: 'Clics / consultas', value: tot('clics') },
+                { label: 'Ventas cerradas', value: tot('ventas') },
+              ].filter((st) => st.value !== undefined)}
             />
           </div>
         </ChartCard>
       </div>
 
+      <div className="mt-3">
+        <LeadSnapshotCard />
+      </div>
+
       <Card className="mt-3">
         <CardHeader title="Detalle mensual" subtitle="Haz clic en un mes para abrir su detalle." />
         <div className="mt-2">
-          <MonthTable rows={rows} metrics={['ingresos', 'ventas', 'ticket', 'visitas', 'consultas', 'conversion', 'clientesNuevos']} />
+          <MonthTable rows={rows} metrics={['ingresos', 'ventas', 'ticket', 'consultas', 'cierre', 'visitas', 'conversion', 'clientesNuevos']} />
         </div>
       </Card>
     </>

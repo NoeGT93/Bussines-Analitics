@@ -37,7 +37,7 @@ export const NAV: { id: PageId; label: string; icon: ReactNode }[] = [
   { id: 'overview', label: 'Resumen ejecutivo', icon: <LayoutDashboard size={17} /> },
   { id: 'social', label: 'Redes sociales', icon: <Share2 size={17} /> },
   { id: 'sales', label: 'Ventas', icon: <BarChart3 size={17} /> },
-  { id: 'traffic', label: 'Tráfico y conversiones', icon: <MousePointerClick size={17} /> },
+  { id: 'traffic', label: 'Leads y conversión', icon: <MousePointerClick size={17} /> },
   { id: 'roi', label: 'ROI y costos', icon: <Coins size={17} /> },
   { id: 'compare', label: 'Comparativas', icon: <GitCompareArrows size={17} /> },
   { id: 'insights', label: 'Hallazgos', icon: <Lightbulb size={17} /> },
@@ -57,7 +57,7 @@ function Brand({ collapsed }: { collapsed?: boolean }) {
       {!collapsed && (
         <div className="min-w-0 leading-tight">
           <div className="truncate text-[13.5px] font-semibold text-ink">Business Analytics</div>
-          <div className="truncate text-[11px] text-faint">OVNI · Construex</div>
+          <div className="truncate text-[11px] text-faint">Spartan Gym · Quetzaltenango</div>
         </div>
       )}
     </div>
@@ -194,6 +194,7 @@ function CompanyPicker() {
               </button>
             );
           })}
+          {ds.companies.length > 1 && (<>
           <div className="my-1 h-px bg-line" />
           <button
             role="option"
@@ -212,6 +213,7 @@ function CompanyPicker() {
             </span>
             {scope === 'consolidado' && <Check size={15} className="text-electric" />}
           </button>
+          </>)}
         </div>
       )}
     </Popover>

@@ -2,7 +2,7 @@ import type { CompanyScope, Dataset, DateRange } from '../types';
 import { channelsFor, METRICS, rowsFor, totalOf, type SeriesMetric } from './metrics';
 import { fmt, pct, pp } from './format';
 import { labelLong, labelRange, previousRange } from './periods';
-import { roiByChannel, roiTotal } from './roi';
+import { roiByChannel, roiByMonth, roiTotal } from './roi';
 
 export type InsightTone = 'positive' | 'negative' | 'neutral' | 'attention';
 export type InsightCategory = 'Ingresos' | 'Ventas' | 'Ticket' | 'Tráfico' | 'Conversión' | 'Canales' | 'ROI' | 'Datos';
@@ -219,6 +219,50 @@ export const rulesProvider: InsightProvider = {
           weight: 6,
         });
       }
+      // Leads y cierre por red (cuando los datos son leads recibidos y cerrados)
+      const totalLeads = ch.channels.reduce((s, c) => s + (c.values.consultas ?? 0), 0);
+      const byLeads = [...ch.channels].filter((c) => c.values.consultas !== undefined).sort((a, b) => b.values.consultas! - a.values.consultas!);
+      const byCierre = [...ch.channels].filter((c) => c.cierre !== undefined && (c.values.consultas ?? 0) >= 30).sort((a, b) => b.cierre! - a.cierre!);
+      if (byLeads.length >= 2 && byCierre.length >= 2 && totalLeads) {
+        const top = byLeads[0];
+        const best = byCierre[0];
+        const worst = byCierre[byCierre.length - 1];
+        if (top.canal !== best.canal) {
+          out.push({
+            id: 'ch-leads-vs-cierre',
+            tone: 'attention',
+            category: 'Canales',
+            title: `${top.canal} trae más leads, pero ${best.canal} cierra mejor`,
+            figure: `${fmt(top.cierre, '%')} / ${fmt(best.cierre, '%')}`,
+            body: `${top.canal} aporta ${fmt(top.values.consultas! / totalLeads, '%')} de los leads y cierra ${fmt(top.cierre, '%')}; ${best.canal} cierra ${fmt(best.cierre, '%')} de los suyos.${note}`,
+            basis: 'Leads recibidos y ventas cerradas por red en el rango. Tasa de cierre = cerrados ÷ recibidos.',
+            weight: 10,
+          });
+        } else {
+          out.push({
+            id: 'ch-best',
+            tone: 'positive',
+            category: 'Canales',
+            title: `${best.canal} trae más leads y además cierra mejor`,
+            figure: fmt(best.cierre, '%'),
+            body: `${fmt(best.values.consultas)} leads, ${fmt(best.values.ventas)} cerrados.${note}`,
+            basis: 'Tasa de cierre = cerrados ÷ recibidos, por red.',
+            weight: 9,
+          });
+        }
+        if (worst.cierre! < (best.cierre ?? 0) / 2) {
+          out.push({
+            id: 'ch-worst',
+            tone: 'attention',
+            category: 'Canales',
+            title: `${worst.canal} tiene el cierre más bajo`,
+            figure: fmt(worst.cierre, '%'),
+            body: `${fmt(worst.values.ventas)} cerrados de ${fmt(worst.values.consultas)} leads en el período, menos de la mitad que ${best.canal}.${note}`,
+            basis: 'Tasa de cierre por red; solo redes con 30 leads o más.',
+            weight: 7,
+          });
+        }
+      }
       const byConv = [...ch.channels].filter((c) => c.conversion !== undefined && (c.values.visitas ?? 0) >= 50).sort((a, b) => b.conversion! - a.conversion!);
       if (byConv.length >= 2) {
         out.push({
@@ -255,10 +299,42 @@ export const rulesProvider: InsightProvider = {
           category: 'ROI',
           title: rt.roi >= 0 ? 'La inversión del período se recuperó' : 'La inversión del período no se recuperó',
           figure: fmt(rt.roi, '%'),
-          body: `Inversión ${fmt(rt.inversion, 'Q')} frente a ingresos de ${fmt(rt.ingresos, 'Q')}. Cada venta costó ${fmt(rt.cpa, 'Q2')} en inversión.`,
-          basis: 'ROI = (retorno − inversión) ÷ inversión; el retorno usa el margen bruto si está definido.',
+          body: `Inversión ${fmt(rt.inversion, 'Q')} y ventas de ${fmt(rt.ingresos, 'Q')}: beneficio neto de ${fmt(rt.beneficio, 'Q')}. Cada lead costó ${fmt(rt.costoConsulta, 'Q2')} y cada venta cerrada ${fmt(rt.cpa, 'Q2')}.`,
+          basis: 'ROI = beneficio neto ÷ inversión × 100. Sin margen definido, beneficio neto = ventas − inversión (no descuenta otros gastos).',
           weight: 12,
         });
+      }
+      const rm = roiByMonth(ds, scope, range).filter((m) => m.costoConsulta !== undefined);
+      if (rm.length >= 3) {
+        const f = rm[0];
+        const l = rm[rm.length - 1];
+        const d = l.costoConsulta! / f.costoConsulta! - 1;
+        if (Math.abs(d) >= 0.15) {
+          out.push({
+            id: 'cpl-trend',
+            tone: d > 0 ? 'negative' : 'positive',
+            category: 'ROI',
+            title: d > 0 ? 'Cada lead cuesta más que al inicio' : 'Cada lead cuesta menos que al inicio',
+            figure: pct(d),
+            body: `CPL de ${fmt(f.costoConsulta, 'Q2')} en ${labelLong(f.period)} a ${fmt(l.costoConsulta, 'Q2')} en ${labelLong(l.period)}; el CPA pasó de ${fmt(f.cpa, 'Q2')} a ${fmt(l.cpa, 'Q2')}.`,
+            basis: 'CPL = inversión del mes ÷ leads recibidos. CPA = inversión ÷ ventas cerradas.',
+            weight: 11,
+          });
+        }
+        const best = rm.reduce((a, b) => ((b.roi ?? -Infinity) > (a.roi ?? -Infinity) ? b : a));
+        const worst = rm.reduce((a, b) => ((b.roi ?? Infinity) < (a.roi ?? Infinity) ? b : a));
+        if (best.roi !== undefined && worst.roi !== undefined && best.period !== worst.period) {
+          out.push({
+            id: 'roi-months',
+            tone: 'neutral',
+            category: 'ROI',
+            title: `${labelLong(best.period)} fue el mes más rentable`,
+            figure: fmt(best.roi, '%'),
+            body: `Con la misma inversión, ${labelLong(worst.period)} tuvo el ROI más bajo (${fmt(worst.roi, '%')}).`,
+            basis: 'ROI mensual = (ventas − inversión) ÷ inversión, o con margen si está definido.',
+            weight: 9,
+          });
+        }
       }
       const rc = roiByChannel(ds, scope, range).rows.filter((r) => r.roi !== undefined).sort((a, b) => b.roi! - a.roi!);
       if (rc.length >= 2) {

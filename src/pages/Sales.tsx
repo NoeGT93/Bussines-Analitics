@@ -54,6 +54,7 @@ export function Sales() {
   const ticketAvg = totalOf(rows, 'ticket').value;
   const hasPrev = data.some((d) => d.prevIngresos !== undefined);
   const hasRecurrent = data.some((d) => d.clientesRecurrentes !== undefined);
+  const hasClientes = data.some((d) => d.clientesNuevos !== undefined);
   const click = (s: { activeLabel?: string | number } | null) => s?.activeLabel && openDetail({ period: String(s.activeLabel) });
   const prevLabel = `vs. ${labelRange(previousRange(range))}`;
 
@@ -68,7 +69,7 @@ export function Sales() {
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         <KpiCard label="Ingresos" help={METRICS.ingresos.help} unit="Q" value={k.ingresos.value} delta={k.ingresos.delta} compareLabel={prevLabel} coverage={k.ingresos.coverage} spark={k.ingresos.spark} sparkPeriods={k.ingresos.sparkPeriods} color={c.series[0]} />
-        <KpiCard label="Ventas" help={METRICS.ventas.help} unit="n" value={k.ventas.value} delta={k.ventas.delta} compareLabel={prevLabel} coverage={k.ventas.coverage} spark={k.ventas.spark} sparkPeriods={k.ventas.sparkPeriods} color={c.series[0]} />
+        <KpiCard label="Ventas cerradas" help={METRICS.ventas.help} unit="n" value={k.ventas.value} delta={k.ventas.delta} compareLabel={prevLabel} coverage={k.ventas.coverage} spark={k.ventas.spark} sparkPeriods={k.ventas.sparkPeriods} color={c.series[0]} />
         <KpiCard label="Ticket promedio" help={METRICS.ticket.help} unit="Q2" value={k.ticket.value} delta={k.ticket.delta} compareLabel={prevLabel} coverage={k.ticket.coverage} spark={k.ticket.spark} sparkPeriods={k.ticket.sparkPeriods} color={c.series[2]} />
         <KpiCard label="Clientes nuevos" help={METRICS.clientesNuevos.help} unit="n" value={k.clientesNuevos.value} delta={k.clientesNuevos.delta} compareLabel={prevLabel} coverage={k.clientesNuevos.coverage} spark={k.clientesNuevos.spark} sparkPeriods={k.clientesNuevos.sparkPeriods} color={c.series[3]} />
       </div>
@@ -76,7 +77,7 @@ export function Sales() {
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
         <ChartCard
           className="xl:col-span-2"
-          title="Evolución de ingresos"
+          title="Ingresos por mes"
           subtitle={hasPrev ? `Barras claras: ${labelRange(previousRange(range))}` : 'Sin datos del período anterior para comparar'}
           exportName="ingresos-mensuales"
           help="Clic en una barra para ver el detalle del mes. Si defines metas, aparecen como línea punteada."
@@ -113,7 +114,7 @@ export function Sales() {
           </div>
         </ChartCard>
 
-        <ChartCard title="Número de ventas" subtitle="Ventas o tickets por mes" exportName="ventas-mensuales">
+        <ChartCard title="Ventas cerradas" subtitle="Leads convertidos en clientes por mes" exportName="ventas-mensuales">
           <div className="h-[300px]">
             <ResponsiveContainer>
               <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} onClick={click} style={{ cursor: 'pointer' }}>
@@ -202,6 +203,7 @@ export function Sales() {
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {hasClientes && (
         <ChartCard title="Adquisición de clientes" subtitle={hasRecurrent ? 'Nuevos y recurrentes por mes' : 'Clientes nuevos por mes. Recurrentes: sin datos en el archivo.'} exportName="clientes">
           <div className="h-[240px]">
             <ResponsiveContainer>
@@ -232,16 +234,16 @@ export function Sales() {
             </ResponsiveContainer>
           </div>
         </ChartCard>
+        )}
 
         <ChartCard title="Embudo comercial" subtitle={labelRange(range)} exportName="embudo-ventas">
           <div className="px-2 pt-1">
             <Funnel
               stages={[
                 { label: 'Visitas web', value: totalOf(rows, 'visitas').value },
-                totalOf(rows, 'consultas').value !== undefined ? { label: 'Consultas', value: totalOf(rows, 'consultas').value } : { label: 'Clics / consultas', value: totalOf(rows, 'clics').value },
-                { label: 'Oportunidades', value: undefined, note: 'Sin registro de oportunidades' },
-                { label: 'Ventas', value: totalOf(rows, 'ventas').value },
-              ]}
+                totalOf(rows, 'consultas').value !== undefined ? { label: 'Leads', value: totalOf(rows, 'consultas').value } : { label: 'Clics / consultas', value: totalOf(rows, 'clics').value },
+                { label: 'Ventas cerradas', value: totalOf(rows, 'ventas').value },
+              ].filter((st) => st.value !== undefined)}
             />
           </div>
         </ChartCard>

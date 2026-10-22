@@ -13,10 +13,11 @@ import type {
   SocialPost,
   SocialRecord,
   CostRecord,
+  LeadSnapshot,
 } from '../types';
 import { activeRepository } from '../lib/repository';
 import { emptyDataset } from '../lib/defaults';
-import { demoCopicentro, SEED_VERSION } from '../lib/demo';
+import { seedSpartan, SEED_VERSION } from '../lib/demo';
 import { shift } from '../lib/periods';
 import { rowsFor } from '../lib/metrics';
 
@@ -66,6 +67,8 @@ interface Actions {
   upsertCosts(recs: CostRecord[], file: string, companyId: string): Upsert<CostRecord>;
   setCost(rec: { companyId: string; period: Period | null; canal: string | null; inversion?: number; concepto?: string }): void;
   setMargin(companyId: string, margen: number | undefined): void;
+  saveSnapshot(snap: LeadSnapshot): void;
+  deleteSnapshot(id: string): void;
   updateMonthly(id: string, patch: Partial<MonthlyRecord>): void;
   deleteMonthly(id: string): void;
   deleteChannel(id: string): void;
@@ -105,27 +108,17 @@ function fallbackRange(): DateRange {
   return { from: `${now.getFullYear()}-01`, to };
 }
 
-/** Primera visita: Copicentro OVNI arranca con los datos de Dashboard_Copicentro.xlsx */
+/** Primera visita: Spartan Gym arranca con los datos de REPORTE_DASHABOARD.xlsx y el corte de leads */
 function seededDataset(): Dataset {
   const ds = emptyDataset();
-  const seed = demoCopicentro(ds.companies[0].id);
-  return { ...ds, monthly: seed.monthly, channels: seed.channels, seedVersion: SEED_VERSION };
+  const seed = seedSpartan(ds.companies[0].id);
+  return { ...ds, monthly: seed.monthly, channels: seed.channels, costs: seed.costs, leadSnapshots: seed.snapshots, seedVersion: SEED_VERSION };
 }
 
-/** Si el navegador guardó datos base de una versión anterior del Excel, se reemplazan por los nuevos (los importados no se tocan) */
+/** Datos guardados con una semilla anterior: se vuelve a sembrar */
 function upgradeSeed(ds: Dataset): Dataset {
   if ((ds.seedVersion ?? 1) >= SEED_VERSION) return ds;
-  const id = ds.companies[0]?.id;
-  if (!id) return ds;
-  const seed = demoCopicentro(id);
-  const realMonths = new Set(ds.monthly.filter((m) => m.source.kind !== 'demo').map((m) => m.id));
-  const realCh = new Set(ds.channels.filter((m) => m.source.kind !== 'demo').map((m) => m.id));
-  return {
-    ...ds,
-    monthly: [...ds.monthly.filter((m) => m.source.kind !== 'demo'), ...seed.monthly.filter((m) => !realMonths.has(m.id))],
-    channels: [...ds.channels.filter((m) => m.source.kind !== 'demo'), ...seed.channels.filter((m) => !realCh.has(m.id))],
-    seedVersion: SEED_VERSION,
-  };
+  return seededDataset();
 }
 
 const stored = activeRepository.load();
@@ -247,6 +240,8 @@ export const useStore = create<Store>((set, get) => {
         if (inversion === undefined) return { ...ds, costs: rest };
         return { ...ds, costs: [...rest, { id, companyId, period, canal, inversion, concepto, source: { kind: 'manual', at: new Date().toISOString() } }] };
       }),
+    saveSnapshot: (snap) => mutate((ds) => ({ ...ds, leadSnapshots: [...ds.leadSnapshots.filter((x) => x.id !== snap.id), snap] })),
+    deleteSnapshot: (id) => mutate((ds) => ({ ...ds, leadSnapshots: ds.leadSnapshots.filter((x) => x.id !== id) })),
     setMargin: (companyId, margen) =>
       mutate((ds) => ({ ...ds, settings: { ...ds.settings, [companyId]: { ...(ds.settings[companyId] ?? {}), margen } } })),
     updateMonthly: (id, patch) =>
@@ -272,19 +267,27 @@ export const useStore = create<Store>((set, get) => {
         posts: ds.posts.filter((r) => r.companyId !== companyId),
         goals: ds.goals.filter((r) => r.companyId !== companyId),
         costs: ds.costs.filter((r) => r.companyId !== companyId),
+        leadSnapshots: ds.leadSnapshots.filter((r) => r.companyId !== companyId),
       })),
     loadDemo: () => {
       const id = get().ds.companies[0].id;
-      const demo = demoCopicentro(id);
-      // No sobrescribe datos reales: solo agrega meses/canales que no existan
-      const existing = new Set(get().ds.monthly.map((m) => m.id));
-      const existingCh = new Set(get().ds.channels.map((m) => m.id));
-      mutate((ds) => ({
-        ...ds,
-        monthly: [...ds.monthly, ...demo.monthly.filter((m) => !existing.has(m.id))],
-        channels: [...ds.channels, ...demo.channels.filter((m) => !existingCh.has(m.id))],
-      }));
-      set({ scope: id, range: availableRange(get().ds, id) ?? fallbackRange(), rangePreset: 'all' });
+      const seed = seedSpartan(id);
+      // No sobrescribe lo que ya existe: solo agrega lo que falte del reporte inicial
+      mutate((ds) => {
+        const has = (list: { id: string }[]) => new Set(list.map((x) => x.id));
+        const m = has(ds.monthly);
+        const c = has(ds.channels);
+        const k = has(ds.costs);
+        const l = has(ds.leadSnapshots);
+        return {
+          ...ds,
+          monthly: [...ds.monthly, ...seed.monthly.filter((x) => !m.has(x.id))],
+          channels: [...ds.channels, ...seed.channels.filter((x) => !c.has(x.id))],
+          costs: [...ds.costs, ...seed.costs.filter((x) => !k.has(x.id))],
+          leadSnapshots: [...ds.leadSnapshots, ...seed.snapshots.filter((x) => !l.has(x.id))],
+        };
+      });
+      set({ scope: id, range: availableRange(get().ds, id) ?? fallbackRange(), rangePreset: 'all', cursor: null });
     },
     clearDemo: () =>
       mutate((ds) => ({

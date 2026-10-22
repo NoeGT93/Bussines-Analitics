@@ -1,128 +1,78 @@
-# Business Analytics · Copicentro OVNI y Construex Guatemala
+# Business Analytics · Spartan Gym (Quetzaltenango)
 
-Plataforma web de Business Intelligence para analizar ventas, tráfico digital, conversiones, clientes y redes sociales de **Copicentro OVNI** y **Construex Guatemala**.
+Plataforma web de Business Intelligence para **Spartan Gym** en Quetzaltenango: ventas, inversión en publicidad, leads por red social, tasa de cierre, ROI, CPL y CPA. Admite agregar más empresas desde Gestión de datos.
 
 ## Subir a GitHub
 
 Doble clic en `subir-a-github.bat` (Windows) o ejecuta `./subir-a-github.sh` (Mac/Linux). Git abrirá el navegador para iniciar sesión la primera vez.
 
+Después, en el repositorio: **Settings → Pages → Source: GitHub Actions**. La app queda en `https://noegt93.github.io/Bussines-Analitics/`.
+
 ## Inicio rápido
 
 ```bash
 npm install
-npm run dev        # entorno local en http://localhost:5173
-npm run build      # versión de producción en /dist (GitHub Pages)
+npm run dev           # entorno local en http://localhost:5173
+npm run build         # versión de producción en /dist (GitHub Pages)
 npm run build:single  # un solo HTML liviano; las librerías se cargan desde CDN con versión fija
 ```
-
-Al subir a la rama `main`, el flujo `.github/workflows/deploy.yml` publica la aplicación en GitHub Pages. Actívalo una vez en **Settings → Pages → Source: GitHub Actions**.
 
 ## Secciones
 
 | Sección | Contenido |
 |---|---|
-| Resumen ejecutivo | 8 KPIs con variación y sparkline, evolución mensual interactiva, hallazgos, contribución por canal, embudo y detalle mensual |
-| Redes sociales | Alcance, impresiones, engagement, seguidores, inversión, costo por resultado, ROAS, orgánico vs. pagado y publicaciones destacadas. Sin datos se muestran como *Pendiente* |
-| Ventas | Ingresos vs. período anterior, ventas, ticket promedio, conversión, adquisición de clientes, rendimiento por canal, embudo y metas con cumplimiento |
-| Tráfico y conversiones | Volumen, tasas de avance, adquisición y participación por canal, mapa de variaciones |
-| Comparativas | Períodos (anterior, año anterior, personalizado), empresas y canales |
-| Hallazgos | Reglas analíticas transparentes, cada una con su método de cálculo |
-| Gestión de datos | Importación Excel/CSV con mapeo de columnas y validación, edición de registros, empresas, respaldo y almacenamiento |
-
-## Animación continua
-
-Al estilo de un tablero de bolsa, sin inventar datos: todo recorre los puntos que ya existen.
-
-- **Cinta de indicadores** bajo el encabezado: último mes con datos frente al anterior (▲ ▼) y reparto de ventas por canal. Se detiene al pasar el cursor; cada elemento abre el detalle del mes.
-- **Sparklines vivos**: un destello recorre cada curva y un punto marca el mes seleccionado; la tarjeta muestra ese mes, su valor y la variación.
-- **Gráfico principal**: un cursor marca el mes seleccionado y una línea superior muestra sus valores. Hacer clic en un punto también lo selecciona.
-
-### Recorrido mes a mes
-
-Un solo mes seleccionado sincroniza la cinta, las tarjetas y el gráfico. Por defecto queda fijo en el último mes con datos y solo cambia cuando la persona lo decide:
-
-- **◀ / ▶** en la cinta y en el gráfico principal: mes anterior o siguiente (también con las flechas ← → del teclado).
-- **Reproducir / pausar**: avanza solo cada 1.8 s y vuelve al inicio al llegar al final.
-
-Los destellos decorativos se pausan en Configuración → Animación continua y se apagan si el sistema pide reducir movimiento. La lógica está en `src/lib/live.ts`.
-
-## Definiciones
-
-- **Conversión** = ventas ÷ visitas web
-- **Cierre de consultas** = ventas ÷ consultas
-- **Visitas que consultan** = consultas ÷ visitas
-- **Ticket promedio** = ingresos ÷ ventas (recalculado desde los totales, nunca promediando tickets)
-- **Variación** = frente al período anterior de igual duración; solo se calcula si ambos períodos están completos. Las tasas se comparan en puntos porcentuales.
-- **Vista consolidada**: un indicador se suma solo si todas las empresas lo tienen para ese mes.
-- **Fuentes de tráfico acumuladas** (sin mes) se muestran aparte y nunca se mezclan con los datos mensuales.
-
-## Importación
-
-El importador reconoce las hojas `Datos_Mensuales` y `Fuentes_Trafico` de `Dashboard_Copicentro.xlsx` y omite la hoja `Dashboard` (sus valores se derivan de las otras). También acepta CSV y las plantillas descargables desde la aplicación (datos mensuales, fuentes, redes sociales y publicaciones).
-
-Valida: fila de encabezados, filas de totales, meses no reconocidos, duplicados, valores negativos, coherencia de la conversión y el ticket del archivo, y diferencias entre totales por canal y mensuales. Los registros del mismo mes y empresa se reemplazan, no se duplican.
-
-## Arquitectura
-
-```
-src/
-  types/            Modelo de datos con trazabilidad de origen (archivo, hoja, fila)
-  lib/
-    metrics.ts      Cálculo de indicadores, consolidación, canales y redes
-    insights.ts     Motor de hallazgos (interfaz InsightProvider lista para IA)
-    importer.ts     Lectura, detección, mapeo y validación de archivos
-    exporter.ts     CSV, XLSX, PDF ejecutivo y respaldo JSON
-    repository.ts   Capa de persistencia intercambiable
-  store/            Estado global (zustand)
-  components/       UI, gráficos, KPIs, layout y paneles
-  pages/            Una página por sección
-```
-
-### Persistencia
-
-Hoy los datos se guardan en el navegador (`localStorage`): son privados de ese equipo y se pierden si se borran los datos del sitio. Para compartirlos entre usuarios, implementa la interfaz `DataRepository` de `src/lib/repository.ts` con una base de datos (por ejemplo Supabase o una API propia) y cámbiala en `activeRepository`.
-
-### Hallazgos con IA
-
-`src/lib/insights.ts` define `InsightProvider`. Agrega un proveedor nuevo al arreglo `providers`; sus resultados deben mostrarse etiquetados como generados por IA.
+| Resumen ejecutivo | Ingresos, ventas cerradas, leads, tasa de cierre, ticket, ROI, CPL y CPA; evolución mensual; hallazgos; leads por red; embudo; corte diario de leads |
+| Redes sociales | Alcance, impresiones, engagement, seguidores, inversión en anuncios; pendientes hasta importar datos de Meta Ads o TikTok Ads |
+| Ventas | Ingresos y ventas cerradas por mes, ticket promedio, tasa de cierre, rendimiento por red y metas |
+| Leads y conversión | Leads y cierres por mes y por red, participación de cada red, mapa de variaciones |
+| ROI y costos | Chuleta de métricas, ROI, beneficio neto, ROAS, CPL, CPA, CTR, costo por red y retorno mes a mes |
+| Comparativas | Períodos (anterior, año anterior, personalizado) y redes |
+| Hallazgos | Reglas analíticas transparentes, cada una con su cálculo |
+| Gestión de datos | Importación Excel/CSV, corte diario de leads, edición, empresas, respaldo |
 
 ## Datos
 
-`datos/Dashboard_Copicentro.xlsx` es el archivo base. En la primera visita, Copicentro OVNI arranca con sus cifras (hojas `Datos_Mensuales` y `Fuentes_Trafico`), que el propio archivo describe como ejemplos simulados: se marcan como **demostrativas** en toda la interfaz y en los reportes. Al importar datos reales, los meses coincidentes se reemplazan; los datos base se pueden quitar en Gestión de datos → Almacenamiento.
+### Reporte mensual (`datos/REPORTE_DASHABOARD.xlsx`)
 
-Construex Guatemala arranca vacía, con su estructura lista para importar.
+Un bloque por mes, de enero a septiembre de 2026, con **inversión**, **venta** (Q) y leads **recibidos** y **cerrados** por red (Instagram, Facebook, WhatsApp y TikTok). El importador reconoce este formato de bloques aunque estén lado a lado y valida el TOTAL de cada bloque. Hay una plantilla descargable con el mismo formato para los meses siguientes.
 
-### Archivo base (versión revisada por el equipo)
-
-La hoja `Datos_Mensuales` trae tres cuadros, y el importador detecta cada uno por separado:
-
-1. **Resumen mensual**: visitas web/otros, clics/consultas, cierre de ventas (n.º de ventas), ventas mensuales (ingresos en Q) y clientes nuevos.
-2. **Medios de comunicación y ventas aportadas**: acumulado por canal.
-3. **% de participación**: se deriva del cuadro 2; no se importa, la plataforma lo recalcula.
-
-Observaciones que la plataforma señala al importar:
-
-- **La fila TOTAL del cuadro 1 cuenta tres meses dos veces** (`=SUM(B3,B3:B8,B8:B11,B11)` suma enero, junio y septiembre dos veces). Visitas: 46,600 en el archivo vs. 34,550 reales; clics/consultas 16,290 vs. 12,050; cierre de ventas 13,182 vs. 9,605; clientes nuevos 2,915 vs. 2,214. La columna de ingresos sí está bien (Q 277,700).
-- **El cuadro de medios coincide con esos totales inflados**, no con la suma real: sus visitas, consultas y ventas superan a las mensuales. Solo los ingresos por canal (Q 277,700) cuadran con los mensuales. Se muestran por separado y no se consolidan.
-- **Ventas suben 91 % e ingresos bajan 33 %** de enero a septiembre: el ticket cae de Q 37.09 a Q 13.03.
-- **Clics / consultas** es una sola columna; se guarda como clics.
-- Clientes nuevos repite 225 (tres meses) y 238 (varios meses).
-
-## ROI y costos
-
-El archivo no trae inversión ni costos, por eso la sección **ROI y costos** no muestra porcentajes hasta que se registre lo invertido. Ahí se explica cada fórmula y se puede escribir la inversión por canal (acumulada) o por mes, o importar la plantilla de costos.
-
-| Indicador | Fórmula |
+| Dato del reporte | En la plataforma |
 |---|---|
-| ROI | (retorno − inversión) ÷ inversión; retorno = ingresos × margen bruto si se define |
-| ROAS | ingresos ÷ inversión |
-| Costo por quetzal generado | inversión ÷ ingresos |
-| Costo por venta (CPA) | inversión ÷ ventas |
-| Costo por cliente nuevo (CAC) | inversión ÷ clientes nuevos |
-| Costo por consulta | inversión ÷ clics o consultas |
-| Ventas para recuperar la inversión | inversión ÷ (ticket promedio × margen) |
+| VENTA | Ingresos (Q) |
+| CERRADOS | Ventas cerradas |
+| RECIBIDOS | Leads |
+| INVERSIÓN | Costo del mes (ROI y costos) |
+| TICKET | Ingresos ÷ ventas cerradas (se recalcula) |
 
-Si falta inversión en algunos meses o canales, la plataforma lo advierte porque el ROI total aparecería más alto de lo real.
+### Corte diario de leads
+
+El reporte que se comparte por WhatsApp (leads en el día, a la fecha y cerrados por fuente: formularios de Instagram y Facebook, Instagram, Messenger y WhatsApp) se registra en **Gestión de datos → Corte de leads** y aparece en el resumen ejecutivo. El corte inicial es del 20 de octubre de 2026.
+
+### Observaciones de los datos
+
+- La inversión es Q 50,000 todos los meses y no se reparte por red, así que el CPL y el CPA por red quedan pendientes hasta registrar cuánto va a cada una.
+- El ROI sigue a las ventas: de 1,194 % en julio a 370 % en agosto, con la misma inversión.
+- El CPL pasó de Q 26.14 (enero) a Q 60.98 (septiembre) porque los leads bajaron de 1,913 a 820.
+- En el corte del 20 de octubre el cierre acumulado es 3.0 % (35 de 1,155), muy por debajo del 13–24 % mensual; conviene confirmar si los cerrados del corte están al día.
+- CPM, CPC y CTR necesitan impresiones y clics del administrador de anuncios; se importan en Redes sociales.
+
+## ROI y métricas de publicidad
+
+| Métrica | Qué significa | Fórmula |
+|---|---|---|
+| ROI | Si la inversión terminó siendo rentable | Beneficio neto ÷ inversión × 100 |
+| CPL | Costo por contacto (lead) | Inversión ÷ leads recibidos |
+| CPA | Costo por acción o conversión | Inversión ÷ ventas cerradas |
+| CPM | Costo por mil impresiones | Inversión en anuncios ÷ impresiones × 1,000 |
+| CPC | Costo por clic | Inversión en anuncios ÷ clics |
+| CTR | Qué porcentaje hizo clic | Clics ÷ impresiones |
+| ROAS | Ventas por cada quetzal invertido | Ventas ÷ inversión |
+
+Beneficio neto = ventas − inversión, como en el reporte. Si se define el margen bruto del gimnasio en ROI y costos, se usa ventas × margen − inversión, que descuenta renta, planilla y demás costos.
+
+## Recorrido mes a mes
+
+Un solo mes seleccionado sincroniza la cinta de indicadores, las tarjetas y el gráfico principal. Se cambia con ◀ / ▶, con las flechas del teclado o con Reproducir. Los destellos decorativos se pausan en Configuración → Animación continua y respetan la preferencia del sistema de reducir movimiento.
 
 ## Arquitectura
 
@@ -130,38 +80,19 @@ Si falta inversión en algunos meses o canales, la plataforma lo advierte porque
 src/
   types/            Modelo de datos con trazabilidad de origen (archivo, hoja, fila)
   lib/
-    metrics.ts      Cálculo de indicadores, consolidación, canales y redes
+    metrics.ts      Indicadores, consolidación y redes
+    roi.ts          ROI, CPL, CPA, ROAS y métricas de anuncios
     insights.ts     Motor de hallazgos (interfaz InsightProvider lista para IA)
-    importer.ts     Lectura, detección, mapeo y validación de archivos
+    importer.ts     Lectura, detección de tablas y bloques, mapeo y validación
     exporter.ts     CSV, XLSX, PDF ejecutivo y respaldo JSON
     repository.ts   Capa de persistencia intercambiable
+    live.ts         Recorrido mes a mes
   store/            Estado global (zustand)
   components/       UI, gráficos, KPIs, layout y paneles
   pages/            Una página por sección
 ```
 
-### Persistencia
-
-Hoy los datos se guardan en el navegador (`localStorage`): son privados de ese equipo y se pierden si se borran los datos del sitio. Para compartirlos entre usuarios, implementa la interfaz `DataRepository` de `src/lib/repository.ts` con una base de datos (por ejemplo Supabase o una API propia) y cámbiala en `activeRepository`.
-
-### Hallazgos con IA
-
-`src/lib/insights.ts` define `InsightProvider`. Agrega un proveedor nuevo al arreglo `providers`; sus resultados deben mostrarse etiquetados como generados por IA.
-
-## Datos
-
-`datos/Dashboard_Copicentro.xlsx` es el archivo base. En la primera visita, Copicentro OVNI arranca con sus cifras (hojas `Datos_Mensuales` y `Fuentes_Trafico`), que el propio archivo describe como ejemplos simulados: se marcan como **demostrativas** en toda la interfaz y en los reportes. Al importar datos reales, los meses coincidentes se reemplazan; los datos base se pueden quitar en Gestión de datos → Almacenamiento.
-
-Construex Guatemala arranca vacía, con su estructura lista para importar.
-
-### Inconsistencias detectadas en el archivo base
-
-- La columna **Clics / consultas** combina dos conceptos; se guarda como clics y el embudo la rotula así.
-- **Fuentes_Trafico no coincide con Datos_Mensuales**: ingresos Q 277,700 vs. Q 136,000; ventas 6,475 vs. 11,770; visitas 31,500 vs. 34,550. El ticket por canal (≈ Q 42.89) es casi 4 veces el mensual (≈ Q 11.55). Se muestran por separado y nunca se consolidan.
-- **Ventas +76 % e ingresos −33 %** de enero a septiembre: el ticket cae de Q 18.37 a Q 6.96. Los ingresos se repiten (Q 18,000 tres meses, Q 15,000 tres meses), igual que clientes nuevos (225 y 238).
-- **Conversión de 33–35 %** (ventas ÷ visitas web): muy alta para tráfico web; probablemente las ventas incluyen clientes de mostrador.
-- En Fuentes_Trafico, Facebook/Instagram y Google registran más clics/consultas que visitas, y clientes recurrentes/referidos aparecen con 0.
-- Las conclusiones escritas en la hoja (“los ingresos crecen con más ventas”) contradicen la hoja mensual, donde los ingresos bajan mientras las ventas suben.
+Los datos se guardan en el navegador (`localStorage`). Para compartirlos entre usuarios, implementa `DataRepository` en `src/lib/repository.ts` con una base de datos.
 
 ## Tecnología
 

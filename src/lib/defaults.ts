@@ -1,26 +1,15 @@
 import type { Company, Dataset } from '../types';
 
-export const DATASET_VERSION = 1;
+export const DATASET_VERSION = 2;
 
 export const DEFAULT_COMPANIES: Company[] = [
   {
-    id: 'copicentro-ovni',
-    name: 'Copicentro OVNI',
-    shortName: 'OVNI',
+    id: 'spartan-gym',
+    name: 'Spartan Gym',
+    shortName: 'Spartan',
+    city: 'Quetzaltenango',
     color: '#2F5BFF',
-    links: [
-      { label: 'Sitio web', url: 'https://copicentrovni.wixsite.com/copicentro-ovni' },
-      { label: 'Perfil en Construex', url: 'https://www.construex.gt/exhibidores/copicentros_ovni' },
-    ],
-    note: 'Datos base: archivo Dashboard_Copicentro.xlsx (cifras sin verificar).',
-  },
-  {
-    id: 'construex-gt',
-    name: 'Construex Guatemala',
-    shortName: 'Construex',
-    color: '#0E9F8E',
-    links: [{ label: 'Sitio web', url: 'https://www.construex.gt' }],
-    note: 'Estructura lista para incorporar datos reales. Aún sin registros.',
+    note: 'Quetzaltenango. Datos base: REPORTE_DASHABOARD.xlsx (enero a septiembre de 2026) y corte de leads del 20 de octubre.',
   },
 ];
 
@@ -34,6 +23,7 @@ export function emptyDataset(): Dataset {
     posts: [],
     goals: [],
     costs: [],
+    leadSnapshots: [],
     settings: {},
     log: [],
   };

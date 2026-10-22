@@ -100,12 +100,15 @@ FIELD_SPECS.costs = [
   { key: 'concepto', label: 'Concepto', kind: 'text', match: (h) => has(h, 'concepto', 'descripcion', 'detalle', 'nota') },
 ];
 
+FIELD_SPECS.report = [];
+
 export const KIND_LABEL: Record<ImportKind, string> = {
   monthly: 'Datos mensuales',
   channels: 'Fuentes de tráfico',
   social: 'Redes sociales (mensual)',
   posts: 'Publicaciones',
   costs: 'Inversión y costos',
+  report: 'Reporte mensual por bloques',
 };
 
 function isMoney(h: string) {
@@ -127,8 +130,21 @@ export function normHeader(v: unknown): string {
 
 export type Mapping = Record<string, number>; // fieldKey -> índice de columna (-1 = sin asignar)
 
+export interface ReportBlock {
+  /** Celda donde está la etiqueta MES (fila y columna, base 0) */
+  r: number;
+  c: number;
+  rawMonth: unknown;
+  inversion?: number;
+  venta?: number;
+  ticket?: number;
+  redes: { red: string; recibidos?: number; cerrados?: number; row: number }[];
+  total?: { recibidos?: number; cerrados?: number; row: number };
+}
+
 export interface SheetAnalysis {
   sheet: RawSheet;
+  blocks?: ReportBlock[];
   /** Título del cuadro (texto encima de los encabezados), si lo hay */
   title?: string;
   headerRow: number;
@@ -200,8 +216,64 @@ export function analyzeSheet(sheet: RawSheet, forced?: ImportKind): SheetAnalysi
  * Una hoja puede traer varios cuadros (por ejemplo: resumen mensual, medios de comunicación y % de participación).
  * Se detecta cada fila de encabezados y se analiza cada cuadro por separado.
  */
+/**
+ * Formato “reporte por bloques”: cada mes es un bloque con MES, INVERSIÓN, VENTA (+ TICKET) y una tabla
+ * RED / RECIBIDOS / CERRADOS que termina en TOTAL. Los bloques pueden estar lado a lado.
+ */
+export function findBlocks(sheet: RawSheet): ReportBlock[] {
+  const rows = sheet.rows;
+  const cell = (r: number, c: number) => rows[r]?.[c];
+  const label = (r: number, c: number) => normHeader(cell(r, c));
+  const blocks: ReportBlock[] = [];
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r] ?? [];
+    for (let c = 0; c < row.length; c++) {
+      if (label(r, c) !== 'mes') continue;
+      const rawMonth = cell(r, c + 1);
+      if (!coercePeriod(rawMonth, 2000)) continue;
+      const b: ReportBlock = { r, c, rawMonth, redes: [] };
+      let rr = r + 1;
+      for (; rr < Math.min(rows.length, r + 6); rr++) {
+        const l = label(rr, c);
+        if (l.startsWith('inversion') || l.startsWith('gasto') || l.startsWith('presupuesto')) b.inversion = toNumber(cell(rr, c + 1));
+        else if (l.startsWith('venta') || l.startsWith('ingreso')) {
+          b.venta = toNumber(cell(rr, c + 1));
+          if (label(rr, c + 2).startsWith('ticket')) b.ticket = toNumber(cell(rr, c + 3));
+        } else if (l === 'red' || l === 'redes' || l === 'canal' || l === 'fuente') break;
+      }
+      if (!['red', 'redes', 'canal', 'fuente'].includes(label(rr, c))) continue;
+      for (let k = rr + 1; k < Math.min(rows.length, rr + 30); k++) {
+        const name = toText(cell(k, c));
+        if (!name) break;
+        if (TOTAL_ROW.test(name)) {
+          b.total = { recibidos: toNumber(cell(k, c + 1)), cerrados: toNumber(cell(k, c + 2)), row: k + 1 };
+          break;
+        }
+        b.redes.push({ red: name, recibidos: toNumber(cell(k, c + 1)), cerrados: toNumber(cell(k, c + 2)), row: k + 1 });
+      }
+      if (b.redes.length) blocks.push(b);
+    }
+  }
+  return blocks;
+}
+
 export function findTables(sheet: RawSheet): SheetAnalysis[] {
   const name = normHeader(sheet.name);
+  const blocks = findBlocks(sheet);
+  if (blocks.length) {
+    return [
+      {
+        sheet,
+        blocks,
+        headerRow: blocks[0].r,
+        headers: [],
+        kind: 'report',
+        mapping: {},
+        score: 10,
+        title: `${blocks.length} ${blocks.length === 1 ? 'bloque mensual' : 'bloques mensuales'} (inversión, venta y leads por red)`,
+      },
+    ];
+  }
   if (has(name, 'dashboard', 'resumen', 'grafic') && !has(name, 'datos')) {
     return [{ sheet, headerRow: 0, headers: [], kind: null, mapping: {}, score: 0, reason: 'Hoja de resumen o gráficos: sus valores se derivan de las otras hojas, no se importa.' }];
   }
@@ -328,6 +400,7 @@ export function buildRecords(
   let skippedRows = 0;
   const at = new Date().toISOString();
 
+  if (kind === 'report') return buildReport(a, opts);
   for (const spec of specs.filter((s) => s.required)) {
     if ((a.mapping[spec.key] ?? -1) < 0) issues.push({ level: 'error', msg: `Falta asignar la columna obligatoria “${spec.label}”.` });
   }
@@ -506,6 +579,68 @@ export function buildRecords(
   return { kind, records, issues, skippedRows };
 }
 
+const colName = (c: number) => String.fromCharCode(65 + c);
+
+function buildReport(a: SheetAnalysis, opts: { companyId: string; year: number; file: string }): BuildResult {
+  const issues: Issue[] = [];
+  const records: BuildResult['records'] = [];
+  const at = new Date().toISOString();
+  const seen = new Set<string>();
+  const months: MonthlyRecord[] = [];
+  const invs: number[] = [];
+  for (const b of a.blocks ?? []) {
+    const cellRef = `${colName(b.c)}${b.r + 1}`;
+    const period = coercePeriod(b.rawMonth, opts.year);
+    if (!period) {
+      issues.push({ row: b.r + 1, level: 'warn', msg: `Bloque ${cellRef}: mes no reconocido (“${toText(b.rawMonth)}”).` });
+      continue;
+    }
+    if (seen.has(period)) {
+      issues.push({ row: b.r + 1, level: 'warn', msg: `Bloque ${cellRef}: ${labelLong(period)} aparece más de una vez; se usa el primero.` });
+      continue;
+    }
+    seen.add(period);
+    const source: Provenance = { kind: 'import', file: opts.file, sheet: `${a.sheet.name} (bloque ${cellRef})`, row: b.r + 1, at };
+    const leads = b.redes.reduce((s, x) => s + (x.recibidos ?? 0), 0);
+    const cerrados = b.redes.reduce((s, x) => s + (x.cerrados ?? 0), 0);
+    for (const x of b.redes) {
+      if (x.cerrados !== undefined && x.recibidos !== undefined && x.cerrados > x.recibidos) {
+        issues.push({ row: x.row, level: 'warn', msg: `${labelLong(period)}, ${x.red.trim()}: más cerrados (${x.cerrados}) que recibidos (${x.recibidos}).` });
+      }
+      const canal = normalizeChannel(x.red);
+      const rec: ChannelRecord = { id: `${opts.companyId}:${period}:${canal}`, companyId: opts.companyId, period, canal, source: { ...source, row: x.row } };
+      if (x.recibidos !== undefined) rec.consultas = x.recibidos;
+      if (x.cerrados !== undefined) rec.ventas = x.cerrados;
+      records.push(rec);
+    }
+    if (b.total) {
+      if (b.total.recibidos !== undefined && Math.abs(b.total.recibidos - leads) > 0.5)
+        issues.push({ row: b.total.row, level: 'warn', msg: `${labelLong(period)}: el TOTAL de recibidos dice ${b.total.recibidos}, pero la suma por red es ${leads}.` });
+      if (b.total.cerrados !== undefined && Math.abs(b.total.cerrados - cerrados) > 0.5)
+        issues.push({ row: b.total.row, level: 'warn', msg: `${labelLong(period)}: el TOTAL de cerrados dice ${b.total.cerrados}, pero la suma por red es ${cerrados}.` });
+    }
+    const m: MonthlyRecord = { id: `${opts.companyId}:${period}`, companyId: opts.companyId, period, consultas: leads, ventas: cerrados, source };
+    if (b.venta !== undefined) m.ingresos = b.venta;
+    if (b.ticket !== undefined) m.ticketArchivo = b.ticket;
+    else if (b.venta !== undefined && cerrados) m.ticketArchivo = b.venta / cerrados;
+    if (b.venta === undefined) issues.push({ row: b.r + 1, level: 'warn', msg: `${labelLong(period)}: el bloque no tiene VENTA.` });
+    records.push(m);
+    months.push(m);
+    if (b.inversion !== undefined) {
+      invs.push(b.inversion);
+      const cost: CostRecord = { id: `${opts.companyId}:${period}:total`, companyId: opts.companyId, period, canal: null, inversion: b.inversion, concepto: 'Inversión del mes (reporte)', source };
+      records.push(cost);
+    } else issues.push({ row: b.r + 1, level: 'info', msg: `${labelLong(period)}: el bloque no tiene INVERSIÓN; ese mes no tendrá ROI.` });
+  }
+  if (invs.length >= 3 && invs.every((x) => x === invs[0])) {
+    issues.push({ level: 'info', msg: `La inversión es la misma todos los meses (Q ${invs[0].toLocaleString('es-GT')}). Si es un presupuesto fijo está bien; si el gasto real varió, conviene registrarlo para que el ROI y el CPL sean exactos.` });
+  }
+  months.sort((x, y) => x.period.localeCompare(y.period));
+  issues.push(...validateMonthly(months).filter((i) => !i.msg.includes('visitas')));
+  if (!records.length) issues.push({ level: 'error', msg: 'No se encontraron bloques mensuales válidos.' });
+  return { kind: 'report', records, issues, skippedRows: 0 };
+}
+
 /** Comprueba coherencia interna de los datos mensuales sin modificarlos */
 export function validateMonthly(recs: MonthlyRecord[]): Issue[] {
   const out: Issue[] = [];
@@ -624,9 +759,32 @@ export const TEMPLATES: Record<ImportKind, { headers: string[]; example: (string
     headers: ['Mes', 'Canal', 'Inversión (Q)', 'Concepto'],
     example: ['2026-01', 'Facebook / Instagram', '', 'Pauta pagada'],
   },
+  report: {
+    headers: ['MES', 'OCTUBRE'],
+    example: [],
+  },
 };
 
 export function downloadTemplate(kind: ImportKind) {
+  if (kind === 'report') {
+    const aoa = [
+      ['MES', 'OCTUBRE'],
+      ['INVERSION', ''],
+      ['VENTA', '', 'TICKET', ''],
+      ['RED', 'RECIBIDOS', 'CERRADOS', '%CERRADOS'],
+      ['INSTAGRAM', '', '', ''],
+      ['FACEBOOK', '', '', ''],
+      ['WHATSAPP', '', '', ''],
+      ['TIK TOK', '', '', ''],
+      ['TOTAL', '', '', ''],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
+    XLSX.writeFile(wb, 'plantilla-reporte-mensual.xlsx');
+    return;
+  }
   const t = TEMPLATES[kind];
   const ws = XLSX.utils.aoa_to_sheet([t.headers, t.example]);
   ws['!cols'] = t.headers.map((h) => ({ wch: Math.max(12, h.length + 2) }));

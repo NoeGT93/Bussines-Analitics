@@ -15,7 +15,8 @@ export interface DataRepository {
   clear(): void;
 }
 
-const KEY = 'ba-dataset-v1';
+// v2: Spartan Gym. Los datos guardados con la clave anterior (Copicentro/Construex) ya no se cargan.
+const KEY = 'ba-dataset-v2';
 
 export class LocalStorageRepository implements DataRepository {
   readonly label = 'Almacenamiento local del navegador';
@@ -36,6 +37,7 @@ export class LocalStorageRepository implements DataRepository {
         posts: parsed.posts ?? [],
         goals: parsed.goals ?? [],
         costs: parsed.costs ?? [],
+        leadSnapshots: parsed.leadSnapshots ?? [],
         settings: parsed.settings ?? {},
         log: parsed.log ?? [],
       };
