@@ -6,6 +6,7 @@ import { buildFindings, type Finding } from '../lib/findings';
 import { labelRange } from '../lib/periods';
 import { Card, cx, PageHeader, Segmented } from '../components/ui';
 import { NoData } from '../components/data/Shared';
+import { ExecutiveBrief } from '../components/data/ExecutiveBrief';
 
 const TONE: Record<Finding['tone'], { icon: JSX.Element; ring: string; chip: string; label: string }> = {
   good: { icon: <CircleCheck size={18} />, ring: 'text-up', chip: 'bg-up/10 text-up', label: 'Va bien' },
@@ -26,13 +27,13 @@ export function Findings() {
   return (
     <>
       <PageHeader
-        title="Hallazgos"
-        description={`${scopeLabel}, ${labelRange(range)}${cmp ? `, comparado con ${labelRange(cmp)}` : ''}. Lo más importante que dicen los datos, en palabras sencillas: qué pasó, qué significa y qué hacer.`}
+        title="KPI y hallazgos"
+        description={`${scopeLabel}, ${labelRange(range)}${cmp ? `, comparado con ${labelRange(cmp)}` : ''}. En orden: los KPI clave, las comparaciones, los gráficos, los hallazgos y la decisión recomendada.`}
       />
       {!hasData ? (
         <NoData />
       ) : (
-        <>
+        <ExecutiveBrief>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Segmented
               label="Filtrar hallazgos"
@@ -83,7 +84,7 @@ export function Findings() {
               Con este período hay pocos datos para comparar. Elige "Varios meses" o "Comparar con" un mes con datos para ver más hallazgos.
             </p>
           )}
-        </>
+        </ExecutiveBrief>
       )}
     </>
   );

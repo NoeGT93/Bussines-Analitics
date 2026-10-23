@@ -21,8 +21,8 @@ npm run build:single  # un solo HTML liviano; las librerías se cargan desde CDN
 
 | Sección | Contenido |
 |---|---|
-| Resumen ejecutivo | Resultado del mes o acumulado del período (inversión, venta, venta − inversión); Hallazgos principales con 3 KPI (ganancia, ROI, costo por venta), 2 comparaciones (inversión vs. retorno, costo por clic vs. por venta), 2 gráficos, 3 hallazgos y una decisión con plazo; comparativa contra otro período (indicadores y por red), tarjetas de ingresos, cierres, leads, ROI, CPL y CPA, evolución mensual, hallazgos y corte diario de leads |
-| Hallazgos | De 5 a 9 hallazgos en palabras sencillas (qué pasó, qué significa y qué hacer), filtrables por Atención, Va bien y Para saber |
+| Resumen ejecutivo | Resultado del mes o acumulado del período (inversión, venta, venta − inversión); lo más destacado; comparativa contra otro período (indicadores y por red), tarjetas de ingresos, cierres, leads, ROI, CPL y CPA, evolución mensual, hallazgos y corte diario de leads |
+| KPI y hallazgos | 1 · KPI clave (ganancia, ROI, costo por venta), 2 · Comparaciones (inversión vs. retorno, costo por clic vs. por venta), 3 · Gráficos, 4 · Hallazgos (5 a 9, con qué significa y qué hacer) y 5 · Decisión con plazo |
 | Leads por red | Leads y cierres por mes y por red, tasa de cierre |
 | Alcance y clics | Alcance, impresiones, clics, CTR, CPC, CPM, interacciones y seguidores por red (estimados a partir del Excel) |
 | ROI y costos | ROI (inversión ÷ venta, como en el Excel), ROAS, CPL, CPA y CTR; costo por red y retorno mes a mes |

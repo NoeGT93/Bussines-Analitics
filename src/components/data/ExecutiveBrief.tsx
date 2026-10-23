@@ -1,20 +1,20 @@
 import { useMemo, type ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CalendarClock, Lightbulb, Target } from 'lucide-react';
+import { CalendarClock, Target } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { useCompareRange, useTrendRange } from '../../lib/hooks';
 import { roiByChannel, roiByMonth, roiTotal } from '../../lib/roi';
 import { aggSocial, socialFor } from '../../lib/metrics';
-import { compact, fmt, pct } from '../../lib/format';
+import { compact, fmt } from '../../lib/format';
 import { labelLong, labelRange, labelShort, MONTHS_ES } from '../../lib/periods';
 import { axisProps, ChartCard, ChartTip, useChartColors } from '../charts/kit';
 import { Card, cx, Delta, InfoTip } from '../ui';
 
 /**
- * Hallazgos principales: 3 KPI, 2 comparaciones, 2 gráficos, 3 hallazgos y una decisión con plazo.
- * Todo se calcula con el período y la comparación elegidos en los filtros.
+ * Página Hallazgos: 1 · KPI clave, 2 · Comparaciones, 3 · Gráficos, 4 · Hallazgos (lista que recibe como hijos)
+ * y 5 · Decisión con plazo. Todo se calcula con el período y la comparación elegidos en los filtros.
  */
-export function ExecutiveBrief() {
+export function ExecutiveBrief({ children }: { children?: ReactNode }) {
   const { ds, scope, range } = useStore();
   const { cmp, label: cmpLabel } = useCompareRange();
   const { trend, highlight } = useTrendRange();
@@ -43,46 +43,6 @@ export function ExecutiveBrief() {
   const sorted = [...ch].sort((a, b) => (a.cpa ?? Infinity) - (b.cpa ?? Infinity));
   const best = sorted[0];
   const worst = sorted[sorted.length - 1];
-  const invTotal = ch.reduce((s, r) => s + (r.inversion ?? 0), 0);
-  const venTotal = ch.reduce((s, r) => s + (r.ventas ?? 0), 0);
-
-  // ---------- 3 hallazgos ----------
-  const findings: { title: string; body: string; tone: 'good' | 'bad' | 'info' }[] = [];
-  if (best && worst && best !== worst && worst.cpa && best.cpa) {
-    findings.push({
-      tone: 'bad',
-      title: `${worst.canal} cuesta ${Math.round(worst.cpa / best.cpa)} veces más por venta que ${best.canal}`,
-      body: `${worst.canal} recibe ${pct((worst.inversion ?? 0) / invTotal, 0).replace('+', '')} de la inversión pero aporta solo ${pct((worst.ventas ?? 0) / venTotal, 0).replace('+', '')} de las ventas (${fmt(worst.cpa, 'Q2')} por venta contra ${fmt(best.cpa, 'Q2')}).`,
-    });
-  }
-  if (prev && prev.ingresos) {
-    const dv = rel(t.ingresos, prev.ingresos)!;
-    findings.push({
-      tone: dv >= 0 ? 'good' : 'bad',
-      title: `La venta ${dv >= 0 ? 'subió' : 'bajó'} ${pct(Math.abs(dv), 0).replace('+', '')} frente a ${labelRange(cmp!)}`,
-      body: `Con ${t.inversion === prev.inversion ? 'la misma inversión' : `una inversión de ${fmt(t.inversion, 'Q')}`}, el ROI pasó de ${fmt(prev.roi, '%2')} a ${fmt(t.roi, '%2')}: ${t.roi! < prev.roi! ? 'la publicidad rindió más' : 'la publicidad rindió menos'}.`,
-    });
-  } else if (d.months.length >= 2) {
-    const bestM = d.months.reduce((a, b) => ((b.roi ?? Infinity) < (a.roi ?? Infinity) ? b : a));
-    const worstM = d.months.reduce((a, b) => ((b.roi ?? -Infinity) > (a.roi ?? -Infinity) ? b : a));
-    findings.push({
-      tone: 'info',
-      title: `${labelLong(bestM.period)} fue el mejor mes y ${labelLong(worstM.period)} el peor`,
-      body: `Con inversión similar, el ROI fue ${fmt(bestM.roi, '%2')} contra ${fmt(worstM.roi, '%2')}. La diferencia la hizo la venta, no el gasto.`,
-    });
-  }
-  if (d.months.length >= 2) {
-    const f = d.months[0];
-    const l = d.months[d.months.length - 1];
-    if (f.costoConsulta && l.costoConsulta) {
-      const dl = l.costoConsulta / f.costoConsulta - 1;
-      findings.push({
-        tone: dl > 0.1 ? 'bad' : dl < -0.1 ? 'good' : 'info',
-        title: `Cada lead cuesta ${dl > 0 ? 'más' : 'menos'} que al inicio: ${fmt(f.costoConsulta, 'Q2')} → ${fmt(l.costoConsulta, 'Q2')}`,
-        body: `De ${labelLong(f.period)} a ${labelLong(l.period)} el costo por lead ${dl > 0 ? 'subió' : 'bajó'} ${pct(Math.abs(dl), 0).replace('+', '')} porque ${dl > 0 ? 'llegan menos interesados' : 'llegan más interesados'} con la misma inversión.`,
-      });
-    }
-  }
 
   // ---------- Decisión con plazo ----------
   const now = new Date();
@@ -111,20 +71,9 @@ export function ExecutiveBrief() {
   const chartCh = sorted.map((r) => ({ canal: r.canal, cpa: r.cpa ?? 0 }));
 
   return (
-    <section className="mb-3" aria-labelledby="hallazgos-titulo">
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-2 px-1">
-        <div>
-          <h2 id="hallazgos-titulo" className="text-[15px] font-semibold text-ink">
-            Hallazgos principales
-          </h2>
-          <p className="text-[12.5px] text-muted">
-            {labelRange(range)}
-            {prev ? `, comparado con ${labelRange(cmp!)}` : ''}. Los 3 números clave, 2 comparaciones, 2 gráficos y qué hacer.
-          </p>
-        </div>
-      </div>
-
-      {/* 3 KPI */}
+    <div className="space-y-6">
+      <section aria-labelledby="sec-kpi">
+      <SectionTitle id="sec-kpi" n={1} title="KPI clave" note={`Los 3 números que resumen ${labelRange(range)}${prev ? ` y su cambio frente a ${labelRange(cmp!)}` : ''}.`} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Kpi
           label="Ganancia sobre la publicidad"
@@ -152,8 +101,11 @@ export function ExecutiveBrief() {
         />
       </div>
 
-      {/* 2 comparaciones */}
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+      </section>
+
+      <section aria-labelledby="sec-comp">
+      <SectionTitle id="sec-comp" n={2} title="Comparaciones" note="Lo invertido contra lo vendido, y lo barato de un clic contra lo caro de una venta." />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Card className="p-5">
           <CompareTitle title="Inversión vs. retorno" help="Compara lo que se pagó en publicidad con lo que se vendió en el mismo período." />
           <div className="mt-3 space-y-2.5">
@@ -204,8 +156,11 @@ export function ExecutiveBrief() {
         </Card>
       </div>
 
-      {/* 2 gráficos */}
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+      </section>
+
+      <section aria-labelledby="sec-graf">
+      <SectionTitle id="sec-graf" n={3} title="Gráficos" note="La ganancia mes a mes y el costo de cada inscripción por red." />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <ChartCard title="Inversión vs. venta por mes" subtitle="La distancia entre las barras es la ganancia sobre la publicidad." exportName="inversion-vs-venta">
           <div className="h-[240px]">
             <ResponsiveContainer>
@@ -258,32 +213,24 @@ export function ExecutiveBrief() {
         </ChartCard>
       </div>
 
-      {/* 3 hallazgos + decisión con plazo */}
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-5">
-        <Card className="p-5 lg:col-span-3">
-          <div className="flex items-center gap-2 text-[13.5px] font-semibold text-ink">
-            <Lightbulb size={16} className="text-electric" /> 3 hallazgos
-          </div>
-          <ol className="mt-3 space-y-3.5">
-            {findings.slice(0, 3).map((f, i) => (
-              <li key={i} className="flex gap-3">
-                <span className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-white', f.tone === 'good' ? 'bg-up' : f.tone === 'bad' ? 'bg-down' : 'bg-electric')}>{i + 1}</span>
-                <div>
-                  <p className="text-[13px] font-medium leading-snug text-ink">{f.title}</p>
-                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">{f.body}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Card>
+      </section>
 
-        {decision && (
-          <div className="bg-brand-gradient rounded-card p-5 text-white shadow-card lg:col-span-2">
+      {children && (
+        <section aria-labelledby="sec-hall">
+          <SectionTitle id="sec-hall" n={4} title="Hallazgos" note="Qué pasó, qué significa y qué hacer, en palabras sencillas." />
+          {children}
+        </section>
+      )}
+
+      {decision && (
+        <section aria-labelledby="sec-dec">
+          <SectionTitle id="sec-dec" n={children ? 5 : 4} title="Decisión con plazo" note="La acción que más impacto tendría según los datos, y para cuándo." />
+          <div className="bg-brand-gradient rounded-card p-5 text-white shadow-card">
             <div className="flex items-center gap-2 text-[13.5px] font-semibold">
               <Target size={16} className="text-aqua" /> Decisión recomendada
             </div>
-            <p className="mt-3 text-[16px] font-semibold leading-snug">{decision.title}</p>
-            <p className="mt-2 text-[12.5px] leading-relaxed text-white/80">{decision.body}</p>
+            <p className="mt-3 text-[18px] font-semibold leading-snug">{decision.title}</p>
+            <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-white/80">{decision.body}</p>
             <div className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-[12.5px]">
               <CalendarClock size={15} className="text-aqua" />
               <span>
@@ -291,9 +238,23 @@ export function ExecutiveBrief() {
               </span>
             </div>
           </div>
-        )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+function SectionTitle({ id, n, title, note }: { id: string; n: number; title: string; note: string }) {
+  return (
+    <div className="mb-2.5 flex items-baseline gap-2.5 px-1">
+      <span className="grid h-6 w-6 shrink-0 translate-y-0.5 place-items-center rounded-full bg-electric text-[12px] font-semibold text-white">{n}</span>
+      <div>
+        <h2 id={id} className="text-[15px] font-semibold text-ink">
+          {title}
+        </h2>
+        <p className="text-[12.5px] text-muted">{note}</p>
       </div>
-    </section>
+    </div>
   );
 }
 

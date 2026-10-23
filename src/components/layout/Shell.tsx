@@ -31,7 +31,7 @@ import { exportCsv, exportPdf, exportXlsx } from '../../lib/exporter';
 
 export const NAV: { id: PageId; label: string; icon: ReactNode }[] = [
   { id: 'overview', label: 'Resumen ejecutivo', icon: <LayoutDashboard size={17} /> },
-  { id: 'findings', label: 'Hallazgos', icon: <Lightbulb size={17} /> },
+  { id: 'findings', label: 'KPI y hallazgos', icon: <Lightbulb size={17} /> },
   { id: 'traffic', label: 'Leads por red', icon: <MousePointerClick size={17} /> },
   { id: 'social', label: 'Alcance y clics', icon: <Share2 size={17} /> },
   { id: 'roi', label: 'ROI y costos', icon: <Coins size={17} /> },
