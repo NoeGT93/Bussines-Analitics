@@ -4,15 +4,15 @@ import { useStore } from '../store/useStore';
 import { KpiCard, type KpiCardProps } from '../components/kpi/KpiCard';
 import { LeadSnapshotCard } from '../components/data/LeadSnapshot';
 import { AccumulatedCard } from '../components/data/Accumulated';
+import { ExecutiveBrief } from '../components/data/ExecutiveBrief';
 import { roiByMonth, roiTotal } from '../lib/roi';
 import type { Unit } from '../lib/format';
 import type { PageId } from '../store/useStore';
 import { ChartCard, useChartColors } from '../components/charts/kit';
 import { Donut, Funnel, TrendChart } from '../components/charts/Charts';
 import { Card, CardHeader, PageHeader, Segmented } from '../components/ui';
-import { InsightItem, MonthTable, NoData, SourceNote } from '../components/data/Shared';
+import { MonthTable, NoData, SourceNote } from '../components/data/Shared';
 import { channelsFor, kpi, METRICS, rowsFor, totalOf, type SeriesMetric } from '../lib/metrics';
-import { generateInsights } from '../lib/insights';
 import { useCompareRange, useScopeRows, useTrendRange } from '../lib/hooks';
 import { labelRange } from '../lib/periods';
 import { CompareCard } from '../components/data/CompareCard';
@@ -107,7 +107,6 @@ export function Overview() {
     return list;
   }, [ds, scope, range, cmp, prevLabel, roi, c, setPage]);
 
-  const insights = useMemo(() => generateInsights({ ds, scope, range }).slice(0, 4), [ds, scope, range]);
   const channels = useMemo(() => channelsFor(ds, scope, range), [ds, scope, range]);
 
   if (!hasData) {
@@ -131,6 +130,8 @@ export function Overview() {
 
       <AccumulatedCard />
 
+      <ExecutiveBrief />
+
       <CompareCard />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
@@ -139,8 +140,8 @@ export function Overview() {
         ))}
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
-        <div className="min-w-0 xl:col-span-2" data-report-chart>
+      <div className="mt-3 grid grid-cols-1 gap-3">
+        <div className="min-w-0" data-report-chart>
           <ChartCard
             title="Evolución mensual"
             subtitle={single ? "Todos los meses, con el mes elegido resaltado. Toca otro mes del gráfico para ir a él." : "Activa series, compara con el período anterior o arrastra el selector inferior para acotar meses."}
@@ -150,12 +151,6 @@ export function Overview() {
             <TrendChart rows={trendRows} prevRows={single ? undefined : prevRows} highlight={highlight} onPointClick={(p) => (single ? setRange({ from: p, to: p }, 'month') : openDetail({ period: p }))} onApplyRange={(from, to) => setRange({ from, to }, 'custom')} />
           </ChartCard>
         </div>
-        <Card className="flex flex-col">
-          <CardHeader title="Hallazgos principales" subtitle="Calculados con reglas a partir de los datos cargados." />
-          <div className="flex-1 space-y-4 px-5 py-4">
-            {insights.length ? insights.map((i) => <InsightItem key={i.id} ins={i} />) : <p className="text-[12.5px] text-muted">Se necesitan al menos dos meses con datos.</p>}
-          </div>
-        </Card>
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">

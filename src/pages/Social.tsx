@@ -244,13 +244,21 @@ export function Social() {
           <Card className="mt-3">
             <CardHeader
               title="Comparativa por plataforma"
-              subtitle={`Totales de ${labelRange(range)}, ordenados de lo más importante a lo de apoyo. Toca la (i) para saber qué significa cada término; ● marca la mejor red en cada fila.`}
+              subtitle={`Totales de ${labelRange(range)}, ordenados de lo más importante a lo de apoyo. Primero el total de todas las redes y luego cada red. Toca la (i) para saber qué significa cada término; ● marca la mejor red en cada fila.`}
             />
             <div className="scroll-thin mt-3 overflow-x-auto">
               <table className="w-full min-w-[720px] text-[12.5px]">
                 <thead>
                   <tr className="border-b border-line text-left text-faint">
                     <th className="px-5 py-2 font-medium">Indicador</th>
+                    {platforms.length > 1 && (
+                      <th className="border-r border-line bg-electric/5 px-4 py-2 text-right font-semibold text-ink">
+                        <span className="inline-flex items-center gap-1.5">
+                          Total
+                          <InfoTip text={`Todas las redes unificadas (${platforms.join(' + ')}). Es el resultado global de la pauta; las columnas siguientes lo separan por red.`} />
+                        </span>
+                      </th>
+                    )}
                     {platforms.map((p) => (
                       <th key={p} className="px-3 py-2 text-right font-medium text-ink">
                         {p}
@@ -265,7 +273,7 @@ export function Social() {
                     return (
                       <Fragment key={g.title}>
                         <tr className="bg-sunken/60">
-                          <td colSpan={platforms.length + 1} className="px-5 py-2">
+                          <td colSpan={platforms.length + (platforms.length > 1 ? 2 : 1)} className="px-5 py-2">
                             <span className="text-[11.5px] font-semibold uppercase tracking-wide text-electric">{g.title}</span>
                             <span className="ml-2 text-[11.5px] text-faint">{g.note}</span>
                           </td>
@@ -283,6 +291,14 @@ export function Social() {
                                   <InfoTip text={`${d.help}${isEst ? ' Estimado a partir de la inversión y los leads del Excel.' : REAL_KEYS.has(d.key) && estimado ? ' Dato real del Excel.' : ''}`} />
                                 </span>
                               </td>
+                              {platforms.length > 1 && (
+                                <td className={cx('tnum border-r border-line bg-electric/5 px-4 py-2.5 text-right font-semibold text-ink', g.main && 'text-[13px]')}>
+                                  {(() => {
+                                    const v = total[d.key as keyof SocialAgg];
+                                    return v === undefined ? <span className="text-faint">—</span> : d.key === 'roas' ? `${v.toFixed(2)}×` : fmt(v, d.unit);
+                                  })()}
+                                </td>
+                              )}
                               {byPlatform.map((b) => {
                                 const v = b.agg[d.key as keyof SocialAgg];
                                 const top = v !== undefined && best !== undefined && v === best;
