@@ -21,20 +21,24 @@ npm run build:single  # un solo HTML liviano; las librerías se cargan desde CDN
 
 | Sección | Contenido |
 |---|---|
-| Resumen ejecutivo | Ingresos, ventas cerradas, leads, tasa de cierre, ticket, ROI, CPL y CPA; evolución mensual; hallazgos; leads por red; embudo; corte diario de leads |
-| Redes sociales | Alcance, impresiones, engagement, seguidores, inversión en anuncios; pendientes hasta importar datos de Meta Ads o TikTok Ads |
-| Ventas | Ingresos y ventas cerradas por mes, ticket promedio, tasa de cierre, rendimiento por red y metas |
-| Leads y conversión | Leads y cierres por mes y por red, participación de cada red, mapa de variaciones |
-| ROI y costos | Chuleta de métricas, ROI, beneficio neto, ROAS, CPL, CPA, CTR, costo por red y retorno mes a mes |
-| Comparativas | Períodos (anterior, año anterior, personalizado) y redes |
-| Hallazgos | Reglas analíticas transparentes, cada una con su cálculo |
+| Resumen ejecutivo | Resultado del mes o acumulado del período (inversión, venta, venta − inversión), comparativa contra otro período (indicadores y por red), tarjetas de ingresos, cierres, leads, ROI, CPL y CPA, evolución mensual, hallazgos y corte diario de leads |
+| Leads por red | Leads y cierres por mes y por red, tasa de cierre |
+| Alcance y clics | Alcance, impresiones, clics, CTR, CPC, CPM, interacciones y seguidores por red (estimados a partir del Excel) |
+| ROI y costos | ROI, inversión ÷ venta (el "ROI" del Excel), CPL, CPA y CTR; costo por red y retorno mes a mes |
 | Gestión de datos | Importación Excel/CSV, corte diario de leads, edición, empresas, respaldo |
+
+## Filtros
+
+- **Un mes**: navega mes por mes con ◀ ▶ o la lista; los gráficos de evolución muestran todos los meses con el elegido resaltado (tocar otro mes del gráfico lo selecciona).
+- **Varios meses**: rango con accesos rápidos o personalizado.
+- **Comparar con**: mes/período anterior, mismo período del año pasado, otro mes o período, o sin comparar. Las tarjetas, la Comparativa y Alcance y clics usan esta elección.
+- Al cambiar de mes, período o comparación, los gráficos se redibujan con una animación corta, una sola vez.
 
 ## Datos
 
-### Reporte mensual (`datos/REPORTE_DASHABOARD.xlsx`)
+### Reporte mensual (`datos/Excel_actualizado.xlsx`)
 
-Un bloque por mes, de enero a septiembre de 2026, con **inversión**, **venta** (Q) y leads **recibidos** y **cerrados** por red (Instagram, Facebook, WhatsApp y TikTok). El importador reconoce este formato de bloques aunque estén lado a lado y valida el TOTAL de cada bloque. Hay una plantilla descargable con el mismo formato para los meses siguientes.
+Un bloque por mes, de enero a septiembre de 2026, con **inversión** del mes y **inversión por red** (Instagram Q 10,000, Facebook Q 20,000, WhatsApp Q 10,000, TikTok Q 10,000), **venta** (Q), **costo de producto** (ticket) y leads **recibidos** y **cerrados** por red. El importador reconoce este formato de bloques aunque estén lado a lado y valida el TOTAL de cada bloque. Hay una plantilla descargable con el mismo formato para los meses siguientes.
 
 | Dato del reporte | En la plataforma |
 |---|---|
@@ -50,11 +54,12 @@ El reporte que se comparte por WhatsApp (leads en el día, a la fecha y cerrados
 
 ### Observaciones de los datos
 
-- La inversión es Q 50,000 todos los meses y no se reparte por red, así que el CPL y el CPA por red quedan pendientes hasta registrar cuánto va a cada una.
+- La inversión es Q 50,000 todos los meses, repartida por red; con eso se calculan el CPL y el CPA de cada red.
+- En el Excel, "ROI" es inversión ÷ total de venta (9.95 % en enero). En la plataforma se muestra como **Inversión ÷ venta**; el ROI de la plataforma es (venta − inversión) ÷ inversión.
 - El ROI sigue a las ventas: de 1,194 % en julio a 370 % en agosto, con la misma inversión.
 - El CPL pasó de Q 26.14 (enero) a Q 60.98 (septiembre) porque los leads bajaron de 1,913 a 820.
 - En el corte del 20 de octubre el cierre acumulado es 3.0 % (35 de 1,155), muy por debajo del 13–24 % mensual; conviene confirmar si los cerrados del corte están al día.
-- CPM, CPC y CTR necesitan impresiones y clics del administrador de anuncios; se importan en Redes sociales.
+- **Estimados** (no vienen en el Excel): ingresos por red = cerrados × ticket del mes; impresiones = inversión ÷ CPM de referencia × 1,000; clics = leads ÷ tasa de lead por clic; alcance = impresiones ÷ frecuencia; interacciones, reproducciones y seguidores con tasas de referencia por red (`src/lib/estimates.ts`). Al importar los datos del administrador de anuncios se reemplazan.
 
 ## ROI y métricas de publicidad
 

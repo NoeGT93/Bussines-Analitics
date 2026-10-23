@@ -8,8 +8,8 @@ export const DEFAULT_COMPANIES: Company[] = [
     name: 'Spartan Gym',
     shortName: 'Spartan',
     city: 'Quetzaltenango',
-    color: '#2F5BFF',
-    note: 'Quetzaltenango. Datos base: REPORTE_DASHABOARD.xlsx (enero a septiembre de 2026) y corte de leads del 20 de octubre.',
+    color: '#006EC2',
+    note: 'Quetzaltenango. Datos base: Excel_actualizado.xlsx (enero a septiembre de 2026) y corte de leads del 20 de octubre.',
   },
 ];
 

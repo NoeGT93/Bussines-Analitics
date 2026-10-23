@@ -4,7 +4,7 @@ import { useStore } from '../../store/useStore';
 import { roiByMonth } from '../../lib/roi';
 import { fmt } from '../../lib/format';
 import { labelLong } from '../../lib/periods';
-import { Card, cx } from '../ui';
+import { AnimatedNumber, Card, cx } from '../ui';
 
 /**
  * Total invertido y total vendido acumulados del período seleccionado,
@@ -39,27 +39,31 @@ export function AccumulatedCard() {
 
   return (
     <Card className="mb-3 overflow-hidden">
+      <div className="bg-brand-gradient text-white">
       <div className="px-5 pt-4">
-        <div className="text-[13.5px] font-semibold text-ink">Acumulado del período</div>
-        <div className="mt-0.5 text-[12.5px] text-muted">
-          {periodo} · {data.rows.length} {data.rows.length === 1 ? 'mes' : 'meses'}. Suma de todos los meses del período seleccionado arriba.
+        <div className="text-[13.5px] font-semibold">{first === last ? `Resultado de ${periodo}` : 'Acumulado del período'}</div>
+        <div className="mt-0.5 text-[12.5px] text-white/70">
+          {first === last
+            ? 'Inversión y venta del mes seleccionado arriba.'
+            : `${periodo} · ${data.rows.length} meses. Suma de todos los meses del período seleccionado arriba.`}
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-px border-y border-line bg-line sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-px border-t border-white/15 bg-white/15 sm:grid-cols-3">
         <Figure
           label="Total invertido en publicidad"
-          value={fmt(data.inversion, 'Q')}
-          note={faltaInversion ? `Registrada en ${data.conInversion} de ${data.rows.length} meses` : `Suma de la inversión de ${data.conInversion} meses`}
+          value={data.inversion}
+          note={faltaInversion ? `Registrada en ${data.conInversion} de ${data.rows.length} meses` : data.rows.length === 1 ? 'Inversión de las 4 redes en el mes' : `Suma de la inversión de ${data.conInversion} meses`}
           warn={faltaInversion}
         />
-        <Figure label="Total vendido" value={fmt(data.venta, 'Q')} note={`Suma de las ventas de ${data.conVenta} meses`} />
+        <Figure label="Total vendido" value={data.venta} note={data.rows.length === 1 ? 'Venta registrada del mes' : `Suma de las ventas de ${data.conVenta} meses`} />
         <Figure
           label="Venta menos inversión"
-          value={fmt(resultado, 'Q')}
+          value={resultado}
           tone={resultado >= 0 ? 'up' : 'down'}
           note={porQuetzal !== undefined ? `Por cada Q 1 invertido se vendieron Q ${porQuetzal.toFixed(2)}` : 'Sin inversión registrada'}
         />
+      </div>
       </div>
 
       <button
@@ -113,12 +117,14 @@ export function AccumulatedCard() {
   );
 }
 
-function Figure({ label, value, note, tone, warn }: { label: string; value: string; note: string; tone?: 'up' | 'down'; warn?: boolean }) {
+function Figure({ label, value, note, tone, warn }: { label: string; value: number; note: string; tone?: 'up' | 'down'; warn?: boolean }) {
   return (
-    <div className="bg-surface px-5 py-4">
-      <div className="text-[12.5px] font-medium text-muted">{label}</div>
-      <div className={cx('tnum mt-1.5 whitespace-nowrap text-[24px] font-semibold tracking-[-0.02em] sm:text-[28px]', tone === 'up' ? 'text-up' : tone === 'down' ? 'text-down' : 'text-ink')}>{value}</div>
-      <div className={cx('mt-1 text-[12px]', warn ? 'text-warn' : 'text-faint')}>{note}</div>
+    <div className="bg-[#00071c]/40 px-5 py-4 backdrop-blur-sm">
+      <div className="text-[12.5px] font-medium text-white/75">{label}</div>
+      <div className={cx('tnum mt-1.5 whitespace-nowrap text-[24px] font-semibold tracking-[-0.02em] sm:text-[28px]', tone === 'up' ? 'text-aqua' : tone === 'down' ? 'text-[#ff8a8f]' : 'text-white')}>
+        <AnimatedNumber value={value} unit="Q" />
+      </div>
+      <div className={cx('mt-1 text-[12px]', warn ? 'text-[#ffd07a]' : 'text-white/60')}>{note}</div>
     </div>
   );
 }

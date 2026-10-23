@@ -11,28 +11,31 @@ import { ChartCard, useChartColors } from '../components/charts/kit';
 import { Donut, Funnel, TrendChart } from '../components/charts/Charts';
 import { Card, CardHeader, PageHeader, Segmented } from '../components/ui';
 import { InsightItem, MonthTable, NoData, SourceNote } from '../components/data/Shared';
-import { channelsFor, kpi, METRICS, totalOf, type SeriesMetric } from '../lib/metrics';
+import { channelsFor, kpi, METRICS, rowsFor, totalOf, type SeriesMetric } from '../lib/metrics';
 import { generateInsights } from '../lib/insights';
-import { useScopeRows } from '../lib/hooks';
-import { labelRange, previousRange } from '../lib/periods';
+import { useCompareRange, useScopeRows, useTrendRange } from '../lib/hooks';
+import { labelRange } from '../lib/periods';
+import { CompareCard } from '../components/data/CompareCard';
 
 export function Overview() {
   const { ds, scope, range, setPage, openDetail, setRange } = useStore();
   const { rows, prevRows, hasData, scopeLabel } = useScopeRows();
+  const { cmp, label: prevLabel } = useCompareRange();
+  const { trend, highlight, single } = useTrendRange();
+  const trendRows = useMemo(() => (single ? rowsFor(ds, scope, trend) : rows), [single, ds, scope, trend, rows]);
   const c = useChartColors();
   const [chPick, setChMetric] = useState<'ingresos' | 'ventas' | 'consultas' | null>(null);
 
 
   const roi = useMemo(() => {
     const total = roiTotal(ds, scope, range);
-    const prev = roiTotal(ds, scope, previousRange(range));
-    const months = roiByMonth(ds, scope, range);
-    const prevFull = prev.hasCosts && prevRows.every((r) => Object.keys(r.values).length > 0);
+    const prev = cmp ? roiTotal(ds, scope, cmp) : null;
+    const months = roiByMonth(ds, scope, single ? trend : range);
+    const prevFull = !!prev && prev.hasCosts && prevRows.length > 0 && prevRows.every((r) => Object.keys(r.values).length > 0);
     return { total, prev: prevFull ? prev : null, months };
-  }, [ds, scope, range, prevRows]);
+  }, [ds, scope, range, cmp, prevRows, single, trend]);
 
   const cards = useMemo(() => {
-    const prevLabel = `vs. ${labelRange(previousRange(range))}`;
     type Base = { key: SeriesMetric; label: string; icon: JSX.Element; unit: Unit; color: string; page: PageId; pp?: boolean };
     const base: Base[] = [
       { key: 'ingresos', label: 'Ingresos', icon: <Banknote size={14} />, unit: 'Q', color: c.series[0], page: 'roi' },
@@ -47,7 +50,7 @@ export function Overview() {
     ];
     const out: (KpiCardProps & { key: string })[] = [];
     for (const b of base) {
-      const r = kpi(ds, scope, range, b.key);
+      const r = kpi(ds, scope, range, b.key, cmp);
       if (r.value === undefined) continue;
       out.push({
         key: b.key,
@@ -102,7 +105,7 @@ export function Overview() {
       } as KpiCardProps & { key: string });
     }
     return list;
-  }, [ds, scope, range, roi, c, setPage]);
+  }, [ds, scope, range, cmp, prevLabel, roi, c, setPage]);
 
   const insights = useMemo(() => generateInsights({ ds, scope, range }).slice(0, 4), [ds, scope, range]);
   const channels = useMemo(() => channelsFor(ds, scope, range), [ds, scope, range]);
@@ -128,6 +131,8 @@ export function Overview() {
 
       <AccumulatedCard />
 
+      <CompareCard />
+
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
         {cards.map(({ key, ...cd }) => (
           <KpiCard key={key} {...cd} />
@@ -138,11 +143,11 @@ export function Overview() {
         <div className="min-w-0 xl:col-span-2" data-report-chart>
           <ChartCard
             title="Evolución mensual"
-            subtitle="Activa series, compara con el período anterior o arrastra el selector inferior para acotar meses."
+            subtitle={single ? "Todos los meses, con el mes elegido resaltado. Toca otro mes del gráfico para ir a él." : "Activa series, compara con el período anterior o arrastra el selector inferior para acotar meses."}
             exportName="evolucion-mensual"
             className="h-full"
           >
-            <TrendChart rows={rows} prevRows={prevRows} onPointClick={(p) => openDetail({ period: p })} onApplyRange={(from, to) => setRange({ from, to }, 'custom')} />
+            <TrendChart rows={trendRows} prevRows={single ? undefined : prevRows} highlight={highlight} onPointClick={(p) => (single ? setRange({ from: p, to: p }, 'month') : openDetail({ period: p }))} onApplyRange={(from, to) => setRange({ from, to }, 'custom')} />
           </ChartCard>
         </div>
         <Card className="flex flex-col">

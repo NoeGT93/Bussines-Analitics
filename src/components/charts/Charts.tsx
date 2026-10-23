@@ -10,6 +10,7 @@ import {
   Line,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Sector,
   Tooltip,
@@ -118,7 +119,10 @@ export function TrendChart({
   height = 320,
   initial = ['ingresos'],
   metrics = TREND_METRICS,
+  highlight,
 }: {
+  /** Mes resaltado (vista de un mes) */
+  highlight?: string | null;
   rows: Row[];
   prevRows?: Row[];
   onPointClick?: (period: string) => void;
@@ -210,6 +214,7 @@ export function TrendChart({
             </defs>
             <CartesianGrid vertical={false} stroke={c.grid} />
             <XAxis dataKey="period" tickFormatter={(p) => labelShort(p, rows.length > 12)} {...axisProps(c)} dy={6} minTickGap={12} />
+            {highlight && <ReferenceLine yAxisId="left" x={highlight} stroke={c.electric} strokeWidth={2} strokeOpacity={0.35} label={{ value: labelShort(highlight), position: 'top', fill: c.electric, fontSize: 11, fontWeight: 600 }} />}
             <YAxis
               yAxisId="left"
               width={56}

@@ -4,12 +4,14 @@ import { Header, Sidebar, Toaster } from './components/layout/Shell';
 import { MonthDetail } from './components/data/MonthDetail';
 import { Overview } from './pages/Overview';
 import { Traffic } from './pages/Traffic';
+import { Social } from './pages/Social';
 import { Roi } from './pages/Roi';
 import { DataAdmin } from './pages/DataAdmin';
 
 const PAGES = {
   overview: Overview,
   traffic: Traffic,
+  social: Social,
   roi: Roi,
   data: DataAdmin,
 };

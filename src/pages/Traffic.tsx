@@ -1,37 +1,39 @@
 import { useMemo } from 'react';
-import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
 import { Heatmap, TrendChart } from '../components/charts/Charts';
 import { KpiCard } from '../components/kpi/KpiCard';
 import { PageHeader } from '../components/ui';
 import { NoData, SourceNote } from '../components/data/Shared';
-import { channelsFor, kpi, METRICS, type SeriesMetric } from '../lib/metrics';
-import { useScopeRows } from '../lib/hooks';
+import { channelsFor, kpi, METRICS, rowsFor, type SeriesMetric } from '../lib/metrics';
+import { useCompareRange, useScopeRows, useTrendRange } from '../lib/hooks';
 import { compact, fmt } from '../lib/format';
-import { labelLong, labelRange, labelShort, previousRange } from '../lib/periods';
+import { labelLong, labelRange, labelShort } from '../lib/periods';
 
 export function Traffic() {
   const { ds, scope, range, openDetail, setRange } = useStore();
   const { rows, prevRows, hasData, scopeLabel } = useScopeRows();
+  const { cmp, label: prevLabel } = useCompareRange();
+  const { trend, highlight, single } = useTrendRange();
+  const trendRows = useMemo(() => (single ? rowsFor(ds, scope, trend) : rows), [single, ds, scope, trend, rows]);
   const c = useChartColors();
   const dur = useAnimDuration(600);
   const channels = useMemo(() => channelsFor(ds, scope, range), [ds, scope, range]);
   const k = useMemo(() => {
-    const g = (m: SeriesMetric) => kpi(ds, scope, range, m);
+    const g = (m: SeriesMetric) => kpi(ds, scope, range, m, cmp);
     return { visitas: g('visitas'), clics: g('clics'), consultas: g('consultas'), tasaConsulta: g('tasaConsulta'), conversion: g('conversion'), cierre: g('cierre') };
-  }, [ds, scope, range]);
+  }, [ds, scope, range, cmp]);
 
   if (!hasData) {
     return (
       <>
-        <PageHeader title="Leads y conversión" description={`${scopeLabel}, ${labelRange(range)}`} />
+        <PageHeader title="Leads por red" description={`${scopeLabel}, ${labelRange(range)}`} />
         <NoData />
       </>
     );
   }
-  const prevLabel = `vs. ${labelRange(previousRange(range))}`;
-  const rateData = rows.map((r) => ({ period: r.period, tasaConsulta: r.values.tasaConsulta, cierre: r.values.cierre, conversion: r.values.conversion }));
+  const rateData = trendRows.map((r) => ({ period: r.period, tasaConsulta: r.values.tasaConsulta, cierre: r.values.cierre, conversion: r.values.conversion }));
   const chData = channels.channels.map((x) => ({ canal: x.canal, visitas: x.values.visitas, consultas: x.values.consultas, ventas: x.values.ventas, conversion: x.conversion, cierre: x.cierre }));
 
   // Contribución: % de cada canal en cada métrica
@@ -45,7 +47,7 @@ export function Traffic() {
 
   return (
     <>
-      <PageHeader title="Leads y conversión" description={`${scopeLabel}, ${labelRange(range)}. Cómo llegan los clientes y cuántos terminan comprando.`} />
+      <PageHeader title="Leads por red" description={`${scopeLabel}, ${labelRange(range)}. Cómo llegan los clientes y cuántos terminan comprando.`} />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5">
         <KpiCard label="Visitas web" help={METRICS.visitas.help} unit="n" value={k.visitas.value} delta={k.visitas.delta} compareLabel={prevLabel} coverage={k.visitas.coverage} spark={k.visitas.spark} sparkPeriods={k.visitas.sparkPeriods} color={c.series[0]} />
@@ -59,8 +61,9 @@ export function Traffic() {
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-5">
         <ChartCard className="xl:col-span-3" title="Leads y ventas por mes" subtitle="Volumen mensual de leads recibidos y ventas cerradas" exportName="trafico-mensual">
           <TrendChart
-            rows={rows}
-            prevRows={prevRows}
+            rows={trendRows}
+            prevRows={single ? undefined : prevRows}
+            highlight={highlight}
             metrics={['visitas', 'clics', 'consultas', 'ventas']}
             initial={['visitas', 'consultas', 'ventas']}
             height={290}
@@ -75,6 +78,7 @@ export function Traffic() {
                 <CartesianGrid vertical={false} stroke={c.grid} />
                 <XAxis dataKey="period" tickFormatter={(p) => labelShort(p)} {...axisProps(c)} dy={6} />
                 <YAxis width={44} tickFormatter={(v) => compact(v, '%')} {...axisProps(c)} />
+                {highlight && <ReferenceLine x={highlight} stroke={c.electric} strokeWidth={2} strokeOpacity={0.35} />}
                 <Legend verticalAlign="top" height={30} iconType="plainline" wrapperStyle={{ fontSize: 11.5, color: c.muted }} formatter={(v) => <span style={{ color: c.muted }}>{v}</span>} />
                 <Tooltip
                   cursor={{ stroke: c.faint, strokeDasharray: '3 3' }}

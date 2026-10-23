@@ -3,16 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --bg: 246 247 249;
+  /* Paleta Spartan: Midnight Blue #00071c, Azure Blue #006ec2, Aqua Blue #52d2e4, Pure White #ffffff */
+  --bg: 244 248 252;
   --surface: 255 255 255;
-  --sunken: 241 243 246;
-  --ink: 14 23 38;
-  --muted: 91 101 119;
-  --faint: 148 156 171;
-  --line: 228 231 236;
-  --electric: 47 91 255;
-  --deep: 11 42 111;
-  --up: 12 140 100;
+  --sunken: 236 243 250;
+  --ink: 0 7 28;
+  --muted: 74 90 120;
+  --faint: 138 152 178;
+  --line: 222 231 242;
+  --electric: 0 110 194;
+  --deep: 0 7 28;
+  --aqua: 82 210 228;
+  --up: 0 150 120;
   --down: 214 58 64;
   --warn: 196 128 18;
   color-scheme: light;
@@ -20,17 +22,18 @@
 }
 
 :root.dark {
-  --bg: 9 12 20;
-  --surface: 17 21 32;
-  --sunken: 23 28 41;
-  --ink: 232 235 242;
-  --muted: 152 160 176;
-  --faint: 104 112 130;
-  --line: 36 42 58;
-  --electric: 98 132 255;
-  --deep: 160 184 255;
-  --up: 52 199 145;
-  --down: 255 107 112;
+  --bg: 0 7 28;
+  --surface: 6 18 46;
+  --sunken: 11 27 62;
+  --ink: 236 244 252;
+  --muted: 150 170 200;
+  --faint: 100 120 156;
+  --line: 22 42 82;
+  --electric: 82 170 240;
+  --deep: 186 225 255;
+  --aqua: 82 210 228;
+  --up: 82 210 170;
+  --down: 255 112 118;
   --warn: 240 176 64;
   color-scheme: dark;
 }
@@ -91,43 +94,9 @@ body {
   }
 }
 
-/* Cinta de indicadores tipo bolsa */
-@keyframes ba-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-.ba-marquee {
-  animation: ba-marquee var(--ba-marquee-duration, 45s) linear infinite;
-  will-change: transform;
-}
-.ba-marquee-wrap:hover .ba-marquee {
-  animation-play-state: paused;
-}
-@keyframes ba-ping {
-  0% { transform: scale(1); opacity: 0.55; }
-  100% { transform: scale(2.6); opacity: 0; }
-}
-.ba-ping {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: ba-ping 1.6s ease-out infinite;
-}
-.ba-live-dot::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: inherit;
-  animation: ba-ping 1.6s ease-out infinite;
-}
-
-/* Destello que recorre las líneas del gráfico principal */
-@keyframes ba-comet {
-  from { stroke-dashoffset: 60; }
-  to { stroke-dashoffset: -1600; }
-}
-.ba-comet path.recharts-curve {
-  stroke-dasharray: 60 2400;
-  animation: ba-comet 3.6s linear infinite;
-  filter: drop-shadow(0 0 3px currentColor);
+/* Degradado de marca: Midnight → Azure → Aqua → blanco */
+.bg-brand-gradient {
+  background:
+    radial-gradient(120% 140% at 0% 100%, rgb(82 210 228 / 0.55) 0%, transparent 55%),
+    linear-gradient(160deg, #00071c 0%, #00245a 45%, #006ec2 100%);
 }

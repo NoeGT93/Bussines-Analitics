@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Download, ImageDown } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useStore } from '../../store/useStore';
 import { Button, Card, CardHeader, cx } from '../ui';
 import { fmt, type Unit } from '../../lib/format';
@@ -49,10 +49,10 @@ function compute(): ChartColors {
     up: read('--up'),
     down: read('--down'),
     warn: read('--warn'),
-    // Paleta secuencial discreta: azules + un verde azulado y un ámbar de apoyo
+    // Paleta de marca: Azure, Aqua, Midnight y sus tonos intermedios
     series: dark
-      ? ['#6284FF', '#A0B8FF', '#3CC7B0', '#8E9AB5', '#F0B040', '#C08CFF']
-      : ['#2F5BFF', '#0B2A6F', '#0E9F8E', '#8C97AD', '#D9952A', '#7A5AF8'],
+      ? ['#52AAF0', '#52D2E4', '#A9C6E8', '#2E6FB8', '#7FE3F0', '#E8F4FF']
+      : ['#006EC2', '#52D2E4', '#00071C', '#3A93D6', '#9FE4EF', '#5A6B8C'],
   };
 }
 
@@ -126,6 +126,9 @@ export function ChartCard({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const notify = useStore((s) => s.notify);
+  // Al cambiar de mes, período, comparación o empresa el gráfico se vuelve a dibujar una vez (sin animaciones en bucle)
+  const animKey = useStore((s) => `${s.scope}|${s.range.from}|${s.range.to}|${s.compare}|${s.compareCustom?.from ?? ''}`);
+  const reduce = useReducedMotion();
   const exportPng = async () => {
     if (!ref.current) return;
     try {
@@ -155,7 +158,15 @@ export function ChartCard({
             </div>
           }
         />
-        <div className={cx('min-w-0 flex-1 px-3 pb-4 pt-3', bodyClass)}>{children}</div>
+        <motion.div
+          key={animKey}
+          initial={reduce ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.2, 0.7, 0.2, 1] }}
+          className={cx('min-w-0 flex-1 px-3 pb-4 pt-3', bodyClass)}
+        >
+          {children}
+        </motion.div>
       </div>
     </Card>
   );

@@ -12,6 +12,7 @@ import {
   Menu,
   Moon,
   MousePointerClick,
+  Share2,
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
@@ -21,6 +22,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import { FilterBar } from './FilterBar';
 import { availableRange, useStore, type PageId } from '../../store/useStore';
 import { Button, cx, MenuItem, Popover } from '../ui';
 import { labelLong, labelRange, monthsBetween, shift } from '../../lib/periods';
@@ -29,6 +31,7 @@ import { exportCsv, exportPdf, exportXlsx } from '../../lib/exporter';
 export const NAV: { id: PageId; label: string; icon: ReactNode }[] = [
   { id: 'overview', label: 'Resumen ejecutivo', icon: <LayoutDashboard size={17} /> },
   { id: 'traffic', label: 'Leads por red', icon: <MousePointerClick size={17} /> },
+  { id: 'social', label: 'Alcance y clics', icon: <Share2 size={17} /> },
   { id: 'roi', label: 'ROI y costos', icon: <Coins size={17} /> },
   { id: 'data', label: 'Gestión de datos', icon: <Database size={17} /> },
 ];
@@ -152,7 +155,7 @@ function CompanyPicker() {
           aria-haspopup="listbox"
           className="flex h-9 min-w-0 items-center gap-2 rounded-lg border border-line bg-surface pl-2.5 pr-2 text-[13px] font-medium text-ink hover:bg-sunken"
         >
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: current?.color ?? 'conic-gradient(#2F5BFF 0 50%, #0E9F8E 0)' }} />
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: current?.color ?? 'conic-gradient(#006EC2 0 50%, #52D2E4 0)' }} />
           <span className="max-w-[150px] truncate sm:max-w-[200px]">{current?.name ?? 'Vista consolidada'}</span>
           <ChevronDown size={14} className="text-faint" />
         </button>
@@ -370,9 +373,6 @@ export function Header() {
           <Menu size={18} />
         </Button>
         <CompanyPicker />
-        <div className="hidden md:block">
-          <RangePicker />
-        </div>
         <div className="ml-auto flex items-center gap-1.5">
           <ExportMenu />
           <Button size="icon" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}>
@@ -380,9 +380,7 @@ export function Header() {
           </Button>
         </div>
       </div>
-      <div className="flex items-center gap-2 px-3 pb-2.5 md:hidden">
-        <RangePicker />
-      </div>
+      <FilterBar rangePicker={<RangePicker />} />
     </header>
   );
 }

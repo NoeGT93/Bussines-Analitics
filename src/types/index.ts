@@ -56,6 +56,8 @@ export interface ChannelRecord {
   ventas?: number;
   ingresos?: number;
   clientesNuevos?: number;
+  /** Los ingresos por red se estimaron con cerrados × ticket del mes */
+  ingresosEstimados?: boolean;
   source: Provenance;
 }
 
@@ -67,6 +69,8 @@ export interface SocialRecord {
   period: Period;
   platform: string;
   tipo: 'organico' | 'pagado' | 'total';
+  /** Calculado a partir del reporte (no viene del administrador de anuncios) */
+  estimado?: boolean;
   alcance?: number;
   impresiones?: number;
   reproducciones?: number;

@@ -18,11 +18,11 @@ import type {
 import { activeRepository } from '../lib/repository';
 import { emptyDataset } from '../lib/defaults';
 import { seedSpartan, SEED_VERSION } from '../lib/demo';
-import { shift } from '../lib/periods';
+import { shift, type CompareMode } from '../lib/periods';
 import { rowsFor } from '../lib/metrics';
 
-export type PageId = 'overview' | 'traffic' | 'roi' | 'data';
-const PAGE_IDS: PageId[] = ['overview', 'traffic', 'roi', 'data'];
+export type PageId = 'overview' | 'traffic' | 'social' | 'roi' | 'data';
+const PAGE_IDS: PageId[] = ['overview', 'traffic', 'social', 'roi', 'data'];
 
 export interface DetailTarget {
   period: Period;
@@ -36,6 +36,9 @@ interface UiState {
   rangePreset: string;
   theme: 'light' | 'dark';
   sidebarCollapsed: boolean;
+  /** Contra qué se compara el período seleccionado */
+  compare: CompareMode;
+  compareCustom: DateRange | null;
   /** Mes que muestran las tarjetas (null = último mes con datos) */
   cursor: Period | null;
   mobileNav: boolean;
@@ -52,6 +55,7 @@ interface Actions {
   toggleTheme(): void;
   toggleSidebar(): void;
   setCursor(p: Period | null): void;
+  setCompare(mode: CompareMode, custom?: DateRange | null): void;
   setMobileNav(v: boolean): void;
   openDetail(d: DetailTarget | null): void;
   notify(text: string, tone?: 'ok' | 'error' | 'info'): void;
@@ -104,11 +108,11 @@ function fallbackRange(): DateRange {
   return { from: `${now.getFullYear()}-01`, to };
 }
 
-/** Primera visita: Spartan Gym arranca con los datos de REPORTE_DASHABOARD.xlsx y el corte de leads */
+/** Primera visita: Spartan Gym arranca con los datos de Excel_actualizado.xlsx y el corte de leads */
 function seededDataset(): Dataset {
   const ds = emptyDataset();
   const seed = seedSpartan(ds.companies[0].id);
-  return { ...ds, monthly: seed.monthly, channels: seed.channels, costs: seed.costs, leadSnapshots: seed.snapshots, seedVersion: SEED_VERSION };
+  return { ...ds, monthly: seed.monthly, channels: seed.channels, costs: seed.costs, social: seed.social, leadSnapshots: seed.snapshots, seedVersion: SEED_VERSION };
 }
 
 /** Datos guardados con una semilla anterior: se vuelve a sembrar */
@@ -164,6 +168,8 @@ export const useStore = create<Store>((set, get) => {
     theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
     sidebarCollapsed: !!prefs.sidebarCollapsed,
     cursor: null,
+    compare: 'prev',
+    compareCustom: null,
     mobileNav: false,
     detail: null,
     toast: null,
@@ -186,6 +192,7 @@ export const useStore = create<Store>((set, get) => {
     },
     toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
     setCursor: (cursor) => set({ cursor }),
+    setCompare: (compare, custom) => set((s) => ({ compare, compareCustom: custom === undefined ? s.compareCustom : custom })),
     setMobileNav: (mobileNav) => set({ mobileNav }),
     openDetail: (detail) => set({ detail }),
     notify: (text, tone = 'ok') => set({ toast: { id: ++toastId, text, tone } }),
@@ -263,12 +270,14 @@ export const useStore = create<Store>((set, get) => {
         const c = has(ds.channels);
         const k = has(ds.costs);
         const l = has(ds.leadSnapshots);
+        const so = has(ds.social);
         return {
           ...ds,
           monthly: [...ds.monthly, ...seed.monthly.filter((x) => !m.has(x.id))],
           channels: [...ds.channels, ...seed.channels.filter((x) => !c.has(x.id))],
           costs: [...ds.costs, ...seed.costs.filter((x) => !k.has(x.id))],
           leadSnapshots: [...ds.leadSnapshots, ...seed.snapshots.filter((x) => !l.has(x.id))],
+          social: [...ds.social, ...seed.social.filter((x) => !so.has(x.id))],
         };
       });
       set({ scope: id, range: availableRange(get().ds, id) ?? fallbackRange(), rangePreset: 'all', cursor: null });

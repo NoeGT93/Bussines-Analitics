@@ -83,7 +83,7 @@ export function KpiCard(p: KpiCardProps) {
           {showLive ? <LiveReadout spark={p.spark!} periods={p.sparkPeriods!} unit={p.unit} higherIsBetter={p.higherIsBetter} /> : <span className="block truncate">{empty ? '\u00a0' : p.secondary ?? (p.delta !== undefined ? p.compareLabel : partial ? `${p.coverage!.have} de ${p.coverage!.total} meses con dato` : 'Sin período anterior comparable')}</span>}
         </div>
       </div>
-      <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline data={p.spark} periods={p.sparkPeriods} color={p.color} height={30} />}</div>
+      <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline key={p.sparkPeriods?.join()} data={p.spark} periods={p.sparkPeriods} color={p.color} height={30} />}</div>
     </>
   );
   return (

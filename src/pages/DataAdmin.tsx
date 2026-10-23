@@ -80,7 +80,7 @@ interface SheetState {
 }
 
 function ImportPanel() {
-  const { ds, scope, upsertMonthly, upsertChannels, upsertSocial, upsertPosts, upsertCosts, notify, setPage, setScope } = useStore();
+  const { ds, scope, upsertMonthly, upsertChannels, upsertSocial, upsertPosts, upsertCosts, setCost, notify, setPage, setScope } = useStore();
   const [companyId, setCompanyId] = useState(scope === 'consolidado' ? ds.companies[0].id : scope);
   const [year, setYear] = useState(new Date().getFullYear());
   const [file, setFile] = useState<File | null>(null);
@@ -155,9 +155,14 @@ function ImportPanel() {
       if (b.kind === 'costs') upsertCosts(b.records as CostRecord[], name, companyId);
       if (b.kind === 'report') {
         const recs = b.records as unknown as Record<string, unknown>[];
-        upsertMonthly(recs.filter((r) => !('canal' in r) && !('inversion' in r)) as unknown as MonthlyRecord[], name, companyId);
+        const social = recs.filter((r) => 'platform' in r) as unknown as SocialRecord[];
+        const costs = recs.filter((r) => 'inversion' in r && !('platform' in r)) as unknown as CostRecord[];
+        upsertMonthly(recs.filter((r) => !('canal' in r) && !('inversion' in r) && !('platform' in r)) as unknown as MonthlyRecord[], name, companyId);
         upsertChannels(recs.filter((r) => 'canal' in r && !('inversion' in r)) as unknown as ChannelRecord[], name, companyId);
-        upsertCosts(recs.filter((r) => 'inversion' in r) as unknown as CostRecord[], name, companyId);
+        // Si el reporte trae inversión por red, se quita la inversión total del mes para no contarla dos veces
+        for (const c of costs) if (c.canal && c.period) setCost({ companyId, period: c.period, canal: null, inversion: undefined });
+        upsertCosts(costs, name, companyId);
+        if (social.length) upsertSocial(social, name, companyId);
       }
     });
     notify(`${total} registros importados en ${ds.companies.find((c) => c.id === companyId)?.name}.`);
@@ -882,7 +887,7 @@ function StoragePanel() {
           {demo && <Tag tone="warn">Activos</Tag>}
         </div>
         <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
-          Ventas, inversión y leads por red de enero a septiembre de 2026 (REPORTE_DASHABOARD.xlsx) y el corte de leads del 20 de octubre. Restaurarlo solo agrega lo que falte; nunca reemplaza datos que hayas importado o editado.
+          Ventas, inversión por red y leads de enero a septiembre de 2026 (Excel_actualizado.xlsx) y el corte de leads del 20 de octubre. Restaurarlo solo agrega lo que falte; nunca reemplaza datos que hayas importado o editado.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           {demo ? (

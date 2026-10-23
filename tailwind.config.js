@@ -15,6 +15,7 @@ export default {
         line: 'rgb(var(--line) / <alpha-value>)',
         electric: 'rgb(var(--electric) / <alpha-value>)',
         deep: 'rgb(var(--deep) / <alpha-value>)',
+        aqua: 'rgb(var(--aqua) / <alpha-value>)',
         up: 'rgb(var(--up) / <alpha-value>)',
         down: 'rgb(var(--down) / <alpha-value>)',
         warn: 'rgb(var(--warn) / <alpha-value>)',

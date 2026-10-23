@@ -156,6 +156,6 @@ export const ROI_GLOSSARY: { term: string; formula: string; reading: string; nee
   { term: 'CPC', formula: 'Inversión en anuncios ÷ clics', reading: 'Costo por clic en el anuncio.', needs: 'Clics del administrador de anuncios' },
   { term: 'CTR', formula: 'Clics ÷ impresiones', reading: 'Qué porcentaje de quienes vieron el anuncio hizo clic.', needs: 'Impresiones y clics' },
   { term: 'ROAS', formula: 'Ventas ÷ inversión', reading: 'Quetzales vendidos por cada quetzal invertido. 6× = Q 6 de venta por cada Q 1 de publicidad.' },
-  { term: 'Costo por quetzal vendido', formula: 'Inversión ÷ ventas (Q)', reading: 'Cuántos centavos de publicidad costó cada quetzal vendido. Es el inverso del ROAS.' },
+  { term: 'Costo por quetzal vendido', formula: 'Inversión ÷ ventas (Q)', reading: 'Qué parte de la venta se fue en publicidad. En el Excel aparece con el nombre ROI (inversión ÷ total de venta): 9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad. Es el inverso del ROAS.' },
   { term: 'Ventas para recuperar la inversión', formula: 'Inversión ÷ (ticket promedio × margen)', reading: 'Punto de equilibrio: cuántas inscripciones hacen falta para pagar lo invertido.' },
 ];

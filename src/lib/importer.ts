@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import type { ChannelRecord, CostRecord, ImportKind, MonthlyRecord, Provenance, SocialPost, SocialRecord } from '../types';
 import { coercePeriod, labelLong } from './periods';
 import { normalizeChannel } from './metrics';
+import { estimateSocial } from './estimates';
 
 /* ------------------------------------------------------------------ */
 /* Lectura                                                             */
@@ -138,8 +139,8 @@ export interface ReportBlock {
   inversion?: number;
   venta?: number;
   ticket?: number;
-  redes: { red: string; recibidos?: number; cerrados?: number; row: number }[];
-  total?: { recibidos?: number; cerrados?: number; row: number };
+  redes: { red: string; inversion?: number; recibidos?: number; cerrados?: number; row: number }[];
+  total?: { inversion?: number; recibidos?: number; cerrados?: number; row: number };
 }
 
 export interface SheetAnalysis {
@@ -224,32 +225,50 @@ export function findBlocks(sheet: RawSheet): ReportBlock[] {
   const rows = sheet.rows;
   const cell = (r: number, c: number) => rows[r]?.[c];
   const label = (r: number, c: number) => normHeader(cell(r, c));
+  const empty = (v: unknown) => v === null || v === undefined || (typeof v === 'string' && !v.trim());
+  /** Primera celda con valor a la derecha de una etiqueta (el valor puede estar 1 o 2 columnas después) */
+  const after = (r: number, c: number): { v: unknown; c: number } => {
+    for (let j = c + 1; j <= c + 3; j++) if (!empty(cell(r, j))) return { v: cell(r, j), c: j };
+    return { v: undefined, c: c + 1 };
+  };
   const blocks: ReportBlock[] = [];
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r] ?? [];
     for (let c = 0; c < row.length; c++) {
       if (label(r, c) !== 'mes') continue;
-      const rawMonth = cell(r, c + 1);
+      const rawMonth = after(r, c).v;
       if (!coercePeriod(rawMonth, 2000)) continue;
       const b: ReportBlock = { r, c, rawMonth, redes: [] };
       let rr = r + 1;
       for (; rr < Math.min(rows.length, r + 6); rr++) {
         const l = label(rr, c);
-        if (l.startsWith('inversion') || l.startsWith('gasto') || l.startsWith('presupuesto')) b.inversion = toNumber(cell(rr, c + 1));
+        if (l.startsWith('inversion') || l.startsWith('gasto') || l.startsWith('presupuesto')) b.inversion = toNumber(after(rr, c).v);
         else if (l.startsWith('venta') || l.startsWith('ingreso')) {
-          b.venta = toNumber(cell(rr, c + 1));
-          if (label(rr, c + 2).startsWith('ticket')) b.ticket = toNumber(cell(rr, c + 3));
+          const v = after(rr, c);
+          b.venta = toNumber(v.v);
+          const extra = label(rr, v.c + 1);
+          // TICKET o COSTO DE PRODUCTO (venta ÷ cerrados en el reporte)
+          if (extra.startsWith('ticket') || extra.startsWith('costo de producto')) b.ticket = toNumber(cell(rr, v.c + 2));
         } else if (l === 'red' || l === 'redes' || l === 'canal' || l === 'fuente') break;
       }
       if (!['red', 'redes', 'canal', 'fuente'].includes(label(rr, c))) continue;
+      // Columnas del cuadro por nombre: el reporte puede traer INVERSIÓN POR RED antes de RECIBIDOS
+      const colOf = (test: (l: string) => boolean, fallback?: number) => {
+        for (let j = c + 1; j < c + 8; j++) if (test(label(rr, j))) return j;
+        return fallback;
+      };
+      const cRec = colOf((l) => l.startsWith('recibid') || l.startsWith('leads'), c + 1)!;
+      const cCer = colOf((l) => l.startsWith('cerrad'), cRec + 1)!;
+      const cInv = colOf((l) => l.startsWith('inversion') || l.startsWith('gasto') || l.startsWith('presupuesto'));
+      const inv = (k: number) => (cInv === undefined ? undefined : toNumber(cell(k, cInv)));
       for (let k = rr + 1; k < Math.min(rows.length, rr + 30); k++) {
         const name = toText(cell(k, c));
         if (!name) break;
         if (TOTAL_ROW.test(name)) {
-          b.total = { recibidos: toNumber(cell(k, c + 1)), cerrados: toNumber(cell(k, c + 2)), row: k + 1 };
+          b.total = { inversion: inv(k), recibidos: toNumber(cell(k, cRec)), cerrados: toNumber(cell(k, cCer)), row: k + 1 };
           break;
         }
-        b.redes.push({ red: name, recibidos: toNumber(cell(k, c + 1)), cerrados: toNumber(cell(k, c + 2)), row: k + 1 });
+        b.redes.push({ red: name, inversion: inv(k), recibidos: toNumber(cell(k, cRec)), cerrados: toNumber(cell(k, cCer)), row: k + 1 });
       }
       if (b.redes.length) blocks.push(b);
     }
@@ -603,6 +622,8 @@ function buildReport(a: SheetAnalysis, opts: { companyId: string; year: number; 
     const source: Provenance = { kind: 'import', file: opts.file, sheet: `${a.sheet.name} (bloque ${cellRef})`, row: b.r + 1, at };
     const leads = b.redes.reduce((s, x) => s + (x.recibidos ?? 0), 0);
     const cerrados = b.redes.reduce((s, x) => s + (x.cerrados ?? 0), 0);
+    const ticket = b.venta !== undefined && cerrados ? b.venta / cerrados : undefined;
+    const porRed = b.redes.some((x) => x.inversion !== undefined);
     for (const x of b.redes) {
       if (x.cerrados !== undefined && x.recibidos !== undefined && x.cerrados > x.recibidos) {
         issues.push({ row: x.row, level: 'warn', msg: `${labelLong(period)}, ${x.red.trim()}: más cerrados (${x.cerrados}) que recibidos (${x.recibidos}).` });
@@ -611,7 +632,15 @@ function buildReport(a: SheetAnalysis, opts: { companyId: string; year: number; 
       const rec: ChannelRecord = { id: `${opts.companyId}:${period}:${canal}`, companyId: opts.companyId, period, canal, source: { ...source, row: x.row } };
       if (x.recibidos !== undefined) rec.consultas = x.recibidos;
       if (x.cerrados !== undefined) rec.ventas = x.cerrados;
+      if (x.cerrados !== undefined && ticket !== undefined) {
+        rec.ingresos = x.cerrados * ticket;
+        rec.ingresosEstimados = true;
+      }
       records.push(rec);
+      if (x.inversion !== undefined) {
+        records.push({ id: `${opts.companyId}:${period}:${canal}`, companyId: opts.companyId, period, canal, inversion: x.inversion, concepto: 'Inversión por red (reporte)', source: { ...source, row: x.row } } as CostRecord);
+        records.push(estimateSocial({ companyId: opts.companyId, period, canal, inversion: x.inversion, leads: x.recibidos ?? 0, cerrados: x.cerrados ?? 0, ticket, source: { ...source, row: x.row, file: `Estimado a partir de ${opts.file}` } }));
+      }
     }
     if (b.total) {
       if (b.total.recibidos !== undefined && Math.abs(b.total.recibidos - leads) > 0.5)
@@ -626,7 +655,12 @@ function buildReport(a: SheetAnalysis, opts: { companyId: string; year: number; 
     if (b.venta === undefined) issues.push({ row: b.r + 1, level: 'warn', msg: `${labelLong(period)}: el bloque no tiene VENTA.` });
     records.push(m);
     months.push(m);
-    if (b.inversion !== undefined) {
+    if (porRed) {
+      const suma = b.redes.reduce((s, x) => s + (x.inversion ?? 0), 0);
+      invs.push(suma);
+      if (b.inversion !== undefined && Math.abs(b.inversion - suma) > 0.5)
+        issues.push({ row: b.r + 1, level: 'warn', msg: `${labelLong(period)}: la INVERSIÓN del mes dice Q ${b.inversion.toLocaleString('es-GT')}, pero la suma por red es Q ${suma.toLocaleString('es-GT')}. Se usa la de cada red.` });
+    } else if (b.inversion !== undefined) {
       invs.push(b.inversion);
       const cost: CostRecord = { id: `${opts.companyId}:${period}:total`, companyId: opts.companyId, period, canal: null, inversion: b.inversion, concepto: 'Inversión del mes (reporte)', source };
       records.push(cost);
@@ -770,16 +804,16 @@ export function downloadTemplate(kind: ImportKind) {
     const aoa = [
       ['MES', 'OCTUBRE'],
       ['INVERSION', ''],
-      ['VENTA', '', 'TICKET', ''],
-      ['RED', 'RECIBIDOS', 'CERRADOS', '%CERRADOS'],
-      ['INSTAGRAM', '', '', ''],
-      ['FACEBOOK', '', '', ''],
-      ['WHATSAPP', '', '', ''],
-      ['TIK TOK', '', '', ''],
-      ['TOTAL', '', '', ''],
+      ['VENTA', '', 'COSTO DE PRODUCTO', ''],
+      ['RED', 'INVERSIÓN POR RED', 'RECIBIDOS', 'CERRADOS', '%CERRADOS'],
+      ['INSTAGRAM', '', '', '', ''],
+      ['FACEBOOK', '', '', '', ''],
+      ['WHATSAPP', '', '', '', ''],
+      ['TIK TOK', '', '', '', ''],
+      ['TOTAL', '', '', '', ''],
     ];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
     XLSX.writeFile(wb, 'plantilla-reporte-mensual.xlsx');

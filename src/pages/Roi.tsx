@@ -64,7 +64,7 @@ export function Roi() {
   const { ds, scope, range, setCost, setMargin, setPage } = useStore();
   const c = useChartColors();
   const dur = useAnimDuration(550);
-  const [showGlossary, setShowGlossary] = useState(true);
+  const [showGlossary, setShowGlossary] = useState(false);
   const editable = scope !== 'consolidado';
   const companyName = scope === 'consolidado' ? 'Vista consolidada' : ds.companies.find((x) => x.id === scope)?.name;
 
@@ -73,6 +73,8 @@ export function Roi() {
   const total = useMemo(() => roiTotal(ds, scope, range), [ds, scope, range]);
   const ads = useMemo(() => adMetrics(ds, scope, range), [ds, scope, range]);
   const chCost = (canal: string) => ds.costs.find((x) => x.companyId === scope && x.period === null && x.canal === canal)?.inversion;
+  // El reporte trae la inversión de cada red por mes: se muestra como dato, no como campo a llenar
+  const fromReport = ds.costs.some((x) => x.companyId === scope && x.period !== null && x.canal !== null);
   const monthCost = (p: string) => ds.costs.find((x) => x.companyId === scope && x.period === p && x.canal === null)?.inversion;
   const hasChannelCosts = ch.rows.some((r) => r.inversion !== undefined);
   const hasMonthCosts = months.some((m) => m.inversion !== undefined);
@@ -135,7 +137,7 @@ export function Roi() {
                 <p className="mt-1.5 text-[12px] leading-relaxed text-muted">{g.reading}</p>
                 {g.needs && (
                   <div className="mt-1.5">
-                    <Tag tone={ads.impresiones ? 'up' : 'warn'}>{ads.impresiones ? 'Con datos de anuncios' : `Pendiente: ${g.needs.toLowerCase()}`}</Tag>
+                    <Tag tone={ads.impresiones ? 'blue' : 'warn'}>{ads.impresiones ? 'Estimado (ver Alcance y clics)' : `Pendiente: ${g.needs.toLowerCase()}`}</Tag>
                   </div>
                 )}
               </div>
@@ -154,13 +156,17 @@ export function Roi() {
           help={margen !== undefined ? `Ventas × ${fmt(margen, '%')} de margen − inversión.` : 'Ventas − inversión, como en el reporte. No descuenta renta, planilla ni otros gastos del gimnasio.'}
         />
         <Stat label="ROI" value={total.roi === undefined ? '—' : fmt(total.roi, '%')} tone={total.roi === undefined ? undefined : total.roi >= 0 ? 'up' : 'down'} help="Beneficio neto ÷ inversión × 100." />
-        <Stat label="ROAS" value={total.roas === undefined ? '—' : `${total.roas.toFixed(2)}×`} help="Ventas ÷ inversión." />
+        <Stat
+          label="Inversión ÷ venta"
+          value={total.costoPorQuetzal === undefined ? '—' : fmt(total.costoPorQuetzal, '%')}
+          help="Qué parte de la venta se fue en publicidad. En el Excel aparece con el nombre ROI (inversión ÷ total de venta). Más bajo es mejor."
+        />
         <Stat label="CPL" value={fmt(total.costoConsulta, 'Q2')} help="Costo por lead: inversión ÷ leads recibidos." />
         <Stat label="CPA" value={fmt(total.cpa, 'Q2')} help="Costo por venta cerrada: inversión ÷ ventas cerradas." />
         <Stat
-          label="CTR"
+          label="CTR (estimado)"
           value={ads.ctr === undefined ? 'Pendiente' : fmt(ads.ctr, '%')}
-          help="Clics ÷ impresiones. Requiere los datos del administrador de anuncios (Meta Ads, TikTok Ads), que se importan en Redes sociales."
+          help="Clics ÷ impresiones. Estimado a partir de la inversión y los leads de cada red; se reemplaza al importar los datos del administrador de anuncios."
         />
       </div>
 
@@ -188,7 +194,9 @@ export function Roi() {
             subtitle={
               ch.mode === 'acumulado'
                 ? 'Los datos por canal son acumulados del archivo; escribe la inversión total de cada canal en ese mismo período.'
-                : `${labelRange(range)}. El reporte no reparte la inversión por red: escribe cuánto va a cada una para ver su CPL y CPA.`
+                : fromReport
+                  ? `${labelRange(range)}. Inversión por red del Excel. La venta por red es estimada: cerrados × ticket promedio del mes.`
+                  : `${labelRange(range)}. El reporte no reparte la inversión por red: escribe cuánto va a cada una para ver su CPL y CPA.`
             }
             help="Si el archivo atribuye ventas en quetzales a cada red, también se calcula su ROI. Es una atribución declarada, no una medición causal."
           />
@@ -217,7 +225,7 @@ export function Roi() {
                           {organic && r.inversion === undefined && <div className="text-[11px] text-faint">Suele no tener inversión directa</div>}
                         </td>
                         <td className="px-2 py-1.5">
-                          {editable ? (
+                          {editable && !fromReport ? (
                             <MoneyInput label={`Inversión en ${r.canal}`} value={chCost(r.canal)} onCommit={(v) => setCost({ companyId: scope, period: null, canal: r.canal, inversion: v })} />
                           ) : (
                             <div className="tnum text-right text-ink">{fmt(r.inversion, 'Q')}</div>
@@ -242,7 +250,7 @@ export function Roi() {
                 <p className="px-5 pt-2 text-[11.5px] text-warn">Hay costos registrados para canales que no aparecen en los datos: {ch.orphan.join(', ')}. Cuentan en el total, no en esta tabla.</p>
               )}
               <p className="px-5 py-3 text-[11.5px] leading-snug text-faint">
-                {editable ? 'Escribe la inversión y presiona Enter; se guarda en este navegador. ' : 'En la vista consolidada los costos se suman; edítalos desde cada empresa. '}
+                {fromReport ? 'Para cambiar la inversión, importa el Excel actualizado en Gestión de datos. ' : editable ? 'Escribe la inversión y presiona Enter; se guarda en este navegador. ' : 'En la vista consolidada los costos se suman; edítalos desde cada empresa. '}
                 Las redes sin inversión registrada no tienen CPL ni CPA (no se puede dividir entre cero).
               </p>
             </div>
@@ -356,7 +364,7 @@ export function Roi() {
       <Card className="mt-3">
         <CardHeader
           title="Retorno mes a mes"
-          subtitle="Inversión total de cada mes (todas las redes). Puedes corregirla aquí; el ROI, el CPL y el CPA se recalculan al instante."
+          subtitle={fromReport ? 'Inversión total de cada mes (suma de las redes del Excel).' : 'Inversión total de cada mes (todas las redes). Puedes corregirla aquí; el ROI, el CPL y el CPA se recalculan al instante.'}
         />
         <div className="scroll-thin mt-3 overflow-x-auto">
           <table className="w-full min-w-[820px] text-[12.5px]">
@@ -377,7 +385,7 @@ export function Roi() {
                 <tr key={m.period} className="border-b border-line/60 last:border-0">
                   <td className="px-5 py-2 text-ink">{labelLong(m.period)}</td>
                   <td className="px-2 py-1.5">
-                    {editable ? (
+                    {editable && !fromReport ? (
                       <MoneyInput label={`Inversión de ${labelLong(m.period)}`} value={monthCost(m.period)} onCommit={(v) => setCost({ companyId: scope, period: m.period, canal: null, inversion: v })} />
                     ) : (
                       <div className="tnum text-right text-ink">{fmt(m.inversion, 'Q')}</div>

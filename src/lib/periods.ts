@@ -40,6 +40,16 @@ export function previousRange(range: DateRange): DateRange {
   return { from: shift(range.from, -n), to: shift(range.from, -1) };
 }
 
+export type CompareMode = 'prev' | 'yoy' | 'custom' | 'none';
+
+/** Período contra el que se compara el rango seleccionado (null = sin comparación) */
+export function compareRangeFor(range: DateRange, mode: CompareMode, custom?: DateRange | null): DateRange | null {
+  if (mode === 'none') return null;
+  if (mode === 'yoy') return { from: shift(range.from, -12), to: shift(range.to, -12) };
+  if (mode === 'custom' && custom) return custom;
+  return previousRange(range);
+}
+
 export function labelShort(p: Period, withYear = false) {
   const { y, m } = parsePeriod(p);
   return withYear ? `${MONTHS_SHORT[m - 1]} ${String(y).slice(2)}` : MONTHS_SHORT[m - 1];

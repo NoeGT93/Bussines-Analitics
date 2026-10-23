@@ -173,14 +173,14 @@ export interface KpiResult {
   sparkPeriods: Period[];
 }
 
-export function kpi(ds: Dataset, scope: CompanyScope, range: DateRange, metric: SeriesMetric): KpiResult {
+export function kpi(ds: Dataset, scope: CompanyScope, range: DateRange, metric: SeriesMetric, cmp: DateRange | null = previousRange(range)): KpiResult {
   const rows = rowsFor(ds, scope, range);
-  const prevRows = rowsFor(ds, scope, previousRange(range));
+  const prevRows = cmp ? rowsFor(ds, scope, cmp) : [];
   const cur = totalOf(rows, metric);
   const prev = totalOf(prevRows, metric);
   const isRate = METRICS[metric].unit === '%';
   // Solo comparamos si ambos períodos están completos, para no comparar 3 meses con 1
-  const comparable = cur.coverage.have === cur.coverage.total && prev.coverage.have === prev.coverage.total;
+  const comparable = !!cmp && cur.coverage.have === cur.coverage.total && prev.coverage.total > 0 && prev.coverage.have === prev.coverage.total;
   let delta: number | undefined;
   if (comparable && cur.value !== undefined && prev.value !== undefined) {
     delta = isRate ? cur.value - prev.value : prev.value !== 0 ? (cur.value - prev.value) / Math.abs(prev.value) : undefined;
@@ -313,19 +313,23 @@ export function normalizeChannel(name: string) {
 /* Redes sociales                                                      */
 /* ------------------------------------------------------------------ */
 
-export const SOCIAL_DEFS: { key: SocialField | 'engagement' | 'cpr' | 'roas'; label: string; unit: Unit; help: string }[] = [
+type SocialDerived = 'engagement' | 'cpr' | 'roas' | 'ctr' | 'cpc' | 'cpm';
+
+export const SOCIAL_DEFS: { key: SocialField | SocialDerived; label: string; unit: Unit; help: string }[] = [
   { key: 'alcance', label: 'Alcance', unit: 'n', help: 'Personas únicas que vieron el contenido.' },
   { key: 'impresiones', label: 'Impresiones', unit: 'n', help: 'Veces que se mostró el contenido.' },
   { key: 'reproducciones', label: 'Reproducciones', unit: 'n', help: 'Reproducciones de video.' },
   { key: 'interacciones', label: 'Interacciones', unit: 'n', help: 'Reacciones, comentarios, compartidos y guardados.' },
   { key: 'engagement', label: 'Engagement rate', unit: '%', help: 'Interacciones ÷ alcance.' },
   { key: 'nuevosSeguidores', label: 'Nuevos seguidores', unit: 'n', help: 'Seguidores ganados en el período.' },
-  { key: 'clicsEnlace', label: 'Clics a enlaces', unit: 'n', help: 'Clics en enlaces de publicaciones o anuncios.' },
-  { key: 'consultas', label: 'Consultas generadas', unit: 'n', help: 'Mensajes o consultas iniciadas desde la red social.' },
-  { key: 'leads', label: 'Leads', unit: 'n', help: 'Contactos calificados registrados.' },
-  { key: 'conversiones', label: 'Conversiones atribuidas', unit: 'n', help: 'Ventas atribuidas a la plataforma.' },
-  { key: 'inversion', label: 'Inversión publicitaria', unit: 'Q', help: 'Gasto en anuncios.' },
-  { key: 'cpr', label: 'Costo por resultado', unit: 'Q2', help: 'Inversión ÷ conversiones atribuidas (o leads si no hay conversiones).' },
+  { key: 'clicsEnlace', label: 'Clics', unit: 'n', help: 'Clics en el anuncio (enlace, botón de mensaje o formulario).' },
+  { key: 'ctr', label: 'CTR', unit: '%', help: 'Clics ÷ impresiones: qué porcentaje de quienes vieron el anuncio hizo clic.' },
+  { key: 'leads', label: 'Leads', unit: 'n', help: 'Leads recibidos por la red (dato del Excel).' },
+  { key: 'conversiones', label: 'Ventas cerradas', unit: 'n', help: 'Leads que se inscribieron (dato del Excel).' },
+  { key: 'inversion', label: 'Inversión publicitaria', unit: 'Q', help: 'Inversión por red (dato del Excel).' },
+  { key: 'cpm', label: 'CPM', unit: 'Q2', help: 'Costo por mil impresiones: inversión ÷ impresiones × 1,000.' },
+  { key: 'cpc', label: 'CPC', unit: 'Q2', help: 'Costo por clic: inversión ÷ clics.' },
+  { key: 'cpr', label: 'Costo por venta', unit: 'Q2', help: 'Inversión ÷ ventas cerradas (o leads si no hay ventas).' },
   { key: 'roas', label: 'ROAS', unit: 'n', help: 'Ingresos atribuidos ÷ inversión. Requiere ambos datos.' },
 ];
 
@@ -334,7 +338,7 @@ const SOCIAL_FIELDS: SocialField[] = [
   'clicsEnlace', 'consultas', 'leads', 'conversiones', 'inversion', 'ingresosAtribuidos',
 ];
 
-export type SocialAgg = Partial<Record<SocialField | 'engagement' | 'cpr' | 'roas', number>>;
+export type SocialAgg = Partial<Record<SocialField | SocialDerived, number>>;
 
 export function aggSocial(recs: SocialRecord[]): SocialAgg {
   const out: SocialAgg = {};
@@ -351,6 +355,9 @@ export function aggSocial(recs: SocialRecord[]): SocialAgg {
   const res = out.conversiones ?? out.leads;
   if (out.inversion !== undefined && res) out.cpr = out.inversion / res;
   if (out.ingresosAtribuidos !== undefined && out.inversion) out.roas = out.ingresosAtribuidos / out.inversion;
+  if (out.clicsEnlace !== undefined && out.impresiones) out.ctr = out.clicsEnlace / out.impresiones;
+  if (out.inversion !== undefined && out.clicsEnlace) out.cpc = out.inversion / out.clicsEnlace;
+  if (out.inversion !== undefined && out.impresiones) out.cpm = (out.inversion / out.impresiones) * 1000;
   return out;
 }
 
@@ -362,5 +369,6 @@ export function socialFor(ds: Dataset, scope: CompanyScope, range: DateRange) {
   const split = new Set(recs.filter((r) => r.tipo !== 'total').map((r) => `${r.companyId}:${r.period}:${r.platform}`));
   const clean = recs.filter((r) => r.tipo !== 'total' || !split.has(`${r.companyId}:${r.period}:${r.platform}`));
   const platforms = [...new Set(clean.map((r) => r.platform))].sort();
-  return { recs: clean, platforms, hasSplit: split.size > 0 };
+  const tipos = new Set(clean.map((r) => r.tipo));
+  return { recs: clean, platforms, hasSplit: tipos.has('organico') && tipos.has('pagado'), estimado: clean.some((r) => r.estimado) };
 }
