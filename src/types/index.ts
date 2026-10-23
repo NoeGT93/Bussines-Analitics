@@ -163,6 +163,8 @@ export interface LeadSnapshot {
 export interface CompanySettings {
   /** Margen bruto (0–1) para calcular el ROI sobre utilidad en lugar de sobre ingresos */
   margen?: number;
+  /** Agrupar Facebook, Instagram y WhatsApp como Meta (por defecto sí) */
+  agruparMeta?: boolean;
 }
 
 export interface Dataset {

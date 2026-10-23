@@ -1,5 +1,5 @@
 import type { CompanyScope, Dataset, DateRange, Period } from '../types';
-import { channelsFor, companyIdsFor, rowsFor } from './metrics';
+import { channelGroup, channelsFor, companyIdsFor, groupsMeta, rowsFor } from './metrics';
 import { monthsBetween } from './periods';
 
 /**
@@ -74,7 +74,10 @@ export function roiByChannel(ds: Dataset, scope: CompanyScope, range: DateRange)
   const months = new Set(monthsBetween(range));
   const margen = marginFor(ds, scope);
   const ch = channelsFor(ds, scope, range);
-  const costs = ds.costs.filter((c) => ids.has(c.companyId) && c.canal && (c.period === null || months.has(c.period)));
+  const meta = groupsMeta(ds, scope);
+  const costs = ds.costs
+    .filter((c) => ids.has(c.companyId) && c.canal && (c.period === null || months.has(c.period)))
+    .map((c) => (meta ? { ...c, canal: channelGroup(c.canal!, true) } : c));
   const rows: ChannelRoi[] = ch.channels.map((c) => {
     const own = costs.filter((x) => x.canal === c.canal);
     const inv = own.length ? own.reduce((s, x) => s + x.inversion, 0) : undefined;

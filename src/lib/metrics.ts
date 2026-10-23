@@ -240,7 +240,22 @@ export interface ChannelResult {
 
 const CH_FIELDS: ChannelField[] = ['visitas', 'clics', 'consultas', 'ventas', 'ingresos', 'clientesNuevos'];
 
+/* Meta: Facebook, Instagram y WhatsApp se trabajan como una sola estrategia ------ */
+export const META_LABEL = 'Meta';
+export const META_HELP = 'Meta = Facebook + Instagram + WhatsApp (y Messenger y formularios). Se suman porque la pauta se maneja como una sola estrategia.';
+const META_RE = /^(instagram|facebook|whatsapp|messenger|formulario (instagram|facebook)|facebook \/ instagram)$/i;
+
+/** ¿La empresa (o todas en el consolidado) agrupa las redes de Meta? Por defecto, sí */
+export function groupsMeta(ds: Dataset, scope: CompanyScope) {
+  return companyIdsFor(ds, scope).every((id) => ds.settings[id]?.agruparMeta !== false);
+}
+
+export function channelGroup(canal: string, meta: boolean) {
+  return meta && META_RE.test(canal.trim()) ? META_LABEL : canal;
+}
+
 export function channelsFor(ds: Dataset, scope: CompanyScope, range: DateRange): ChannelResult {
+  const meta = groupsMeta(ds, scope);
   const ids = companyIdsFor(ds, scope);
   const months = new Set(monthsBetween(range));
   const perCompany = ids.map((id) => {
@@ -263,7 +278,7 @@ export function channelsFor(ds: Dataset, scope: CompanyScope, range: DateRange):
   const map = new Map<string, ChannelAgg>();
   for (const p of perCompany) {
     for (const r of p.recs) {
-      const key = normalizeChannel(r.canal);
+      const key = channelGroup(normalizeChannel(r.canal), meta);
       const agg = map.get(key) ?? { canal: key, values: {} };
       for (const f of CH_FIELDS) {
         const v = r[f];
@@ -365,7 +380,10 @@ export function socialFor(ds: Dataset, scope: CompanyScope, range: DateRange) {
   const ids = new Set(companyIdsFor(ds, scope));
   const months = new Set(monthsBetween(range));
   // Evitamos doble conteo: si hay 'organico'/'pagado' para una plataforma-mes, se ignora el 'total'
-  const recs = ds.social.filter((r) => ids.has(r.companyId) && months.has(r.period));
+  const meta = groupsMeta(ds, scope);
+  const recs = ds.social
+    .filter((r) => ids.has(r.companyId) && months.has(r.period))
+    .map((r) => (meta ? { ...r, platform: channelGroup(r.platform, true) } : r));
   const split = new Set(recs.filter((r) => r.tipo !== 'total').map((r) => `${r.companyId}:${r.period}:${r.platform}`));
   const clean = recs.filter((r) => r.tipo !== 'total' || !split.has(`${r.companyId}:${r.period}:${r.platform}`));
   const platforms = [...new Set(clean.map((r) => r.platform))].sort();

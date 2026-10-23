@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight, GitCompareArrows } from 'lucide-react';
 import { availableRange, useStore } from '../../store/useStore';
+import { groupsMeta, META_HELP } from '../../lib/metrics';
 import { Segmented, Select, cx } from '../ui';
 import { compareRangeFor, labelLong, labelRange, monthsBetween, type CompareMode } from '../../lib/periods';
 import type { ReactNode } from 'react';
@@ -12,7 +13,8 @@ import type { ReactNode } from 'react';
  *  - Comparar con: período anterior, mismo período del año anterior, otro período o sin comparar.
  */
 export function FilterBar({ rangePicker }: { rangePicker: ReactNode }) {
-  const { ds, scope, range, setRange, compare, compareCustom, setCompare } = useStore();
+  const { ds, scope, range, setRange, compare, compareCustom, setCompare, setGroupMeta } = useStore();
+  const meta = groupsMeta(ds, scope);
   const avail = availableRange(ds, scope);
   const months = useMemo(() => (avail ? monthsBetween(avail) : []), [avail?.from, avail?.to]);
   const single = range.from === range.to;
@@ -71,6 +73,20 @@ export function FilterBar({ rangePicker }: { rangePicker: ReactNode }) {
       ) : (
         rangePicker
       )}
+
+      <div className="flex items-center gap-1.5" title={META_HELP}>
+        <span className="text-[12px] text-muted">Redes</span>
+        <Segmented
+          size="sm"
+          label="Redes"
+          value={meta ? 'meta' : 'red'}
+          onChange={(v) => setGroupMeta(scope, v === 'meta')}
+          options={[
+            { value: 'meta', label: 'Meta + TikTok' },
+            { value: 'red', label: 'Por red' },
+          ]}
+        />
+      </div>
 
       <div className="flex flex-wrap items-center gap-1.5 sm:ml-2">
         <GitCompareArrows size={15} className="text-muted" aria-hidden />

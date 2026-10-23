@@ -67,6 +67,7 @@ interface Actions {
   upsertCosts(recs: CostRecord[], file: string, companyId: string): Upsert<CostRecord>;
   setCost(rec: { companyId: string; period: Period | null; canal: string | null; inversion?: number; concepto?: string }): void;
   setMargin(companyId: string, margen: number | undefined): void;
+  setGroupMeta(scope: CompanyScope, value: boolean): void;
   saveSnapshot(snap: LeadSnapshot): void;
   deleteSnapshot(id: string): void;
   updateMonthly(id: string, patch: Partial<MonthlyRecord>): void;
@@ -233,6 +234,13 @@ export const useStore = create<Store>((set, get) => {
       }),
     saveSnapshot: (snap) => mutate((ds) => ({ ...ds, leadSnapshots: [...ds.leadSnapshots.filter((x) => x.id !== snap.id), snap] })),
     deleteSnapshot: (id) => mutate((ds) => ({ ...ds, leadSnapshots: ds.leadSnapshots.filter((x) => x.id !== id) })),
+    setGroupMeta: (scope, value) =>
+      mutate((ds) => {
+        const ids = scope === 'consolidado' ? ds.companies.map((c) => c.id) : [scope];
+        const settings = { ...ds.settings };
+        for (const id of ids) settings[id] = { ...(settings[id] ?? {}), agruparMeta: value };
+        return { ...ds, settings };
+      }),
     setMargin: (companyId, margen) =>
       mutate((ds) => ({ ...ds, settings: { ...ds.settings, [companyId]: { ...(ds.settings[companyId] ?? {}), margen } } })),
     updateMonthly: (id, patch) =>
