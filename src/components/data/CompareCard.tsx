@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { useCompareRange } from '../../lib/hooks';
-import { adMetrics, roiByChannel, roiTotal } from '../../lib/roi';
+import { adMetrics, metaBranches, roiByChannel, roiTotal } from '../../lib/roi';
+import { META_LABEL } from '../../lib/metrics';
+import { BranchLeaf, BranchName } from './Branch';
+import { Fragment } from 'react';
 import { rowsFor, totalOf } from '../../lib/metrics';
 import { companyIdsFor } from '../../lib/metrics';
 import { fmt, type Unit } from '../../lib/format';
@@ -57,6 +60,7 @@ export function CompareCard() {
   const { ds, scope, range } = useStore();
   const { cmp } = useCompareRange();
   const [view, setView] = useState<'indicadores' | 'redes'>('indicadores');
+  const [metaOpen, setMetaOpen] = useState(false);
 
   const data = useMemo(() => {
     if (!cmp) return null;
@@ -84,7 +88,9 @@ export function CompareCard() {
     const chA = roiByChannel(ds, scope, range).rows;
     const chB = new Map(roiByChannel(ds, scope, cmp).rows.map((r) => [r.canal, r]));
     const redes = chA.map((r) => ({ canal: r.canal, a: r, b: chB.get(r.canal) }));
-    return { lines, redes, hasB: B.hasData };
+    const brB = new Map(metaBranches(ds, scope, cmp).map((r) => [r.canal, r]));
+    const ramal = metaBranches(ds, scope, range).map((r) => ({ canal: r.canal, a: r, b: brB.get(r.canal) }));
+    return { lines, redes, ramal, hasB: B.hasData };
   }, [ds, scope, range, cmp]);
 
   if (!cmp || !data) return null;
@@ -153,16 +159,37 @@ export function CompareCard() {
               </tr>
             </thead>
             <tbody>
-              {data.redes.map(({ canal, a, b }) => (
-                <tr key={canal} className="border-b border-line/60 last:border-0">
-                  <td className="px-5 py-2.5 font-medium text-ink">{canal}</td>
-                  <Pair a={a.consultas} b={b?.consultas} unit="n" />
-                  <Pair a={a.ventas} b={b?.ventas} unit="n" />
-                  <Pair a={a.cierre} b={b?.cierre} unit="%" rate />
-                  <Pair a={a.inversion} b={b?.inversion} unit="Q" higherIsBetter={false} />
-                  <Pair a={a.cpa} b={b?.cpa} unit="Q2" higherIsBetter={false} last />
-                </tr>
-              ))}
+              {data.redes.map(({ canal, a, b }) => {
+                const isMeta = canal === META_LABEL && data.ramal.length > 1;
+                return (
+                  <Fragment key={canal}>
+                    <tr className="border-b border-line/60 last:border-0">
+                      <td className="px-5 py-2.5">
+                        <BranchName name={canal} open={metaOpen} onToggle={isMeta ? () => setMetaOpen((v) => !v) : undefined} count={isMeta ? data.ramal.length : undefined} />
+                      </td>
+                      <Pair a={a.consultas} b={b?.consultas} unit="n" />
+                      <Pair a={a.ventas} b={b?.ventas} unit="n" />
+                      <Pair a={a.cierre} b={b?.cierre} unit="%" rate />
+                      <Pair a={a.inversion} b={b?.inversion} unit="Q" higherIsBetter={false} />
+                      <Pair a={a.cpa} b={b?.cpa} unit="Q2" higherIsBetter={false} last />
+                    </tr>
+                    {isMeta &&
+                      metaOpen &&
+                      data.ramal.map((x, i) => (
+                        <tr key={x.canal} className="border-b border-line/40 bg-sunken/50 text-[12px]">
+                          <td className="px-5 py-0">
+                            <BranchLeaf name={x.canal} last={i === data.ramal.length - 1} />
+                          </td>
+                          <Pair a={x.a.consultas} b={x.b?.consultas} unit="n" />
+                          <Pair a={x.a.ventas} b={x.b?.ventas} unit="n" />
+                          <Pair a={x.a.cierre} b={x.b?.cierre} unit="%" rate />
+                          <Pair a={x.a.inversion} b={x.b?.inversion} unit="Q" higherIsBetter={false} />
+                          <Pair a={x.a.cpa} b={x.b?.cpa} unit="Q2" higherIsBetter={false} last />
+                        </tr>
+                      ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
           <p className="px-5 py-3 text-[11.5px] text-faint">Arriba el valor de {aLabel}; abajo, en gris, el de {bLabel} y el cambio.</p>

@@ -31,7 +31,7 @@ npm run build:single  # un solo HTML liviano; las librerías se cargan desde CDN
 
 - **Un mes**: navega mes por mes con ◀ ▶ o la lista; los gráficos de evolución muestran todos los meses con el elegido resaltado (tocar otro mes del gráfico lo selecciona).
 - **Varios meses**: rango con accesos rápidos o personalizado.
-- **Redes**: "Meta + TikTok" (por defecto) suma Facebook, Instagram y WhatsApp como Meta, porque la pauta se maneja como una sola estrategia; "Por red" muestra el desglose.
+- **Redes**: "Meta + TikTok" (por defecto) suma Facebook, Instagram y WhatsApp como Meta, porque la pauta se maneja como una sola estrategia; "Por red" muestra el desglose. En las tablas por red (Costo por red y Comparativa), la fila Meta se despliega como un ramal con Facebook, Instagram y WhatsApp.
 - **Comparar con**: mes/período anterior, mismo período del año pasado, otro mes o período, o sin comparar. Las tarjetas, la Comparativa y Alcance y clics usan esta elección.
 - Al cambiar de mes, período o comparación, los gráficos se redibujan con una animación corta, una sola vez.
 

@@ -4,7 +4,10 @@ import { AlertTriangle, BookOpen, Calculator, FileSpreadsheet, Upload } from 'lu
 import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
 import { Button, Card, CardHeader, cx, InfoTip, PageHeader, Tag } from '../components/ui';
-import { adMetrics, roiByChannel, roiByMonth, roiTotal, ROI_GLOSSARY } from '../lib/roi';
+import { adMetrics, metaBranches, roiByChannel, roiByMonth, roiTotal, ROI_GLOSSARY } from '../lib/roi';
+import { META_LABEL } from '../lib/metrics';
+import { BranchLeaf, BranchName } from '../components/data/Branch';
+import { Fragment } from 'react';
 import { compact, fmt } from '../lib/format';
 import { labelLong, labelRange, labelShort } from '../lib/periods';
 import { downloadTemplate } from '../lib/importer';
@@ -69,6 +72,8 @@ export function Roi() {
   const companyName = scope === 'consolidado' ? 'Vista consolidada' : ds.companies.find((x) => x.id === scope)?.name;
 
   const ch = useMemo(() => roiByChannel(ds, scope, range), [ds, scope, range]);
+  const branches = useMemo(() => metaBranches(ds, scope, range), [ds, scope, range]);
+  const [metaOpen, setMetaOpen] = useState(false);
   const months = useMemo(() => roiByMonth(ds, scope, range), [ds, scope, range]);
   const total = useMemo(() => roiTotal(ds, scope, range), [ds, scope, range]);
   const ads = useMemo(() => adMetrics(ds, scope, range), [ds, scope, range]);
@@ -214,10 +219,12 @@ export function Roi() {
                 <tbody>
                   {ch.rows.map((r) => {
                     const organic = /recurrente|referido/i.test(r.canal);
+                    const isMeta = r.canal === META_LABEL && branches.length > 1;
                     return (
-                      <tr key={r.canal} className="border-b border-line/60 last:border-0">
+                      <Fragment key={r.canal}>
+                      <tr className="border-b border-line/60 last:border-0">
                         <td className="px-5 py-2">
-                          <div className="font-medium text-ink">{r.canal}</div>
+                          <BranchName name={r.canal} open={metaOpen} onToggle={isMeta ? () => setMetaOpen((v) => !v) : undefined} count={isMeta ? branches.length : undefined} />
                           {organic && r.inversion === undefined && <div className="text-[11px] text-faint">Suele no tener inversión directa</div>}
                         </td>
                         <td className="px-2 py-1.5">
@@ -238,6 +245,23 @@ export function Roi() {
                           </td>
                         )}
                       </tr>
+                      {isMeta &&
+                        metaOpen &&
+                        branches.map((b, i) => (
+                          <tr key={b.canal} className="border-b border-line/40 bg-sunken/50 text-[12px]">
+                            <td className="px-5 py-0">
+                              <BranchLeaf name={b.canal} last={i === branches.length - 1} />
+                            </td>
+                            <td className="tnum whitespace-nowrap px-2 py-1 text-right text-muted">{fmt(b.inversion, 'Q')}</td>
+                            <td className="tnum whitespace-nowrap px-3 py-1 text-right text-muted">{fmt(b.consultas)}</td>
+                            <td className="tnum whitespace-nowrap px-3 py-1 text-right text-muted">{fmt(b.ventas)}</td>
+                            <td className="tnum whitespace-nowrap px-3 py-1 text-right text-muted">{fmt(b.cierre, '%')}</td>
+                            <td className="tnum whitespace-nowrap px-3 py-1 text-right text-muted">{fmt(b.costoConsulta, 'Q2')}</td>
+                            <td className="tnum whitespace-nowrap px-3 py-1 text-right text-muted">{fmt(b.cpa, 'Q2')}</td>
+                            {hasChIngresos && <td className="tnum whitespace-nowrap px-5 py-1 text-right text-muted">{fmt(b.roi, '%2')}</td>}
+                          </tr>
+                        ))}
+                      </Fragment>
                     );
                   })}
                 </tbody>

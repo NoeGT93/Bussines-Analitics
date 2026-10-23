@@ -254,8 +254,9 @@ export function channelGroup(canal: string, meta: boolean) {
   return meta && META_RE.test(canal.trim()) ? META_LABEL : canal;
 }
 
-export function channelsFor(ds: Dataset, scope: CompanyScope, range: DateRange): ChannelResult {
-  const meta = groupsMeta(ds, scope);
+/** `group` fuerza agrupar (true) o desglosar (false) Meta; si se omite, se usa la preferencia de la empresa */
+export function channelsFor(ds: Dataset, scope: CompanyScope, range: DateRange, group?: boolean): ChannelResult {
+  const meta = group ?? groupsMeta(ds, scope);
   const ids = companyIdsFor(ds, scope);
   const months = new Set(monthsBetween(range));
   const perCompany = ids.map((id) => {

@@ -1,5 +1,5 @@
 import type { CompanyScope, Dataset, DateRange, Period } from '../types';
-import { channelGroup, channelsFor, companyIdsFor, groupsMeta, rowsFor } from './metrics';
+import { channelGroup, channelsFor, companyIdsFor, groupsMeta, META_LABEL, rowsFor } from './metrics';
 import { monthsBetween } from './periods';
 
 /**
@@ -69,12 +69,12 @@ export interface ChannelRoi extends RoiMetrics {
   cierre?: number;
 }
 
-export function roiByChannel(ds: Dataset, scope: CompanyScope, range: DateRange) {
+export function roiByChannel(ds: Dataset, scope: CompanyScope, range: DateRange, group?: boolean) {
   const ids = new Set(companyIdsFor(ds, scope));
   const months = new Set(monthsBetween(range));
   const margen = marginFor(ds, scope);
-  const ch = channelsFor(ds, scope, range);
-  const meta = groupsMeta(ds, scope);
+  const meta = group ?? groupsMeta(ds, scope);
+  const ch = channelsFor(ds, scope, range, meta);
   const costs = ds.costs
     .filter((c) => ids.has(c.companyId) && c.canal && (c.period === null || months.has(c.period)))
     .map((c) => (meta ? { ...c, canal: channelGroup(c.canal!, true) } : c));
@@ -92,6 +92,11 @@ export function roiByChannel(ds: Dataset, scope: CompanyScope, range: DateRange)
   const known = new Set(ch.channels.map((c) => c.canal));
   const orphan = [...new Set(costs.filter((c) => !known.has(c.canal!)).map((c) => c.canal!))];
   return { rows, mode: ch.mode, margen, orphan };
+}
+
+/** Redes que forman Meta (Facebook, Instagram, WhatsApp…) con sus propios indicadores, para desplegarlas bajo la fila Meta */
+export function metaBranches(ds: Dataset, scope: CompanyScope, range: DateRange): ChannelRoi[] {
+  return roiByChannel(ds, scope, range, false).rows.filter((r) => channelGroup(r.canal, true) === META_LABEL);
 }
 
 export interface MonthRoi extends RoiMetrics {
