@@ -3,6 +3,7 @@ import { useStore } from './store/useStore';
 import { Header, Sidebar, Toaster } from './components/layout/Shell';
 import { MonthDetail } from './components/data/MonthDetail';
 import { Overview } from './pages/Overview';
+import { Findings } from './pages/Findings';
 import { Traffic } from './pages/Traffic';
 import { Social } from './pages/Social';
 import { Roi } from './pages/Roi';
@@ -10,6 +11,7 @@ import { DataAdmin } from './pages/DataAdmin';
 
 const PAGES = {
   overview: Overview,
+  findings: Findings,
   traffic: Traffic,
   social: Social,
   roi: Roi,

@@ -21,8 +21,8 @@ import { seedSpartan, SEED_VERSION } from '../lib/demo';
 import { shift, type CompareMode } from '../lib/periods';
 import { rowsFor } from '../lib/metrics';
 
-export type PageId = 'overview' | 'traffic' | 'social' | 'roi' | 'data';
-const PAGE_IDS: PageId[] = ['overview', 'traffic', 'social', 'roi', 'data'];
+export type PageId = 'overview' | 'findings' | 'traffic' | 'social' | 'roi' | 'data';
+const PAGE_IDS: PageId[] = ['overview', 'findings', 'traffic', 'social', 'roi', 'data'];
 
 export interface DetailTarget {
   period: Period;
