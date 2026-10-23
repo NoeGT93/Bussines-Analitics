@@ -6,7 +6,7 @@ import { useCompareRange, useTrendRange } from '../../lib/hooks';
 import { roiByChannel, roiByMonth, roiTotal } from '../../lib/roi';
 import { aggSocial, socialFor } from '../../lib/metrics';
 import { compact, fmt } from '../../lib/format';
-import { labelLong, labelRange, labelShort, MONTHS_ES } from '../../lib/periods';
+import { labelLong, labelRange, labelShort, monthsBetween, MONTHS_ES } from '../../lib/periods';
 import { axisProps, ChartCard, ChartTip, useChartColors } from '../charts/kit';
 import { Card, cx, Delta, InfoTip } from '../ui';
 
@@ -35,9 +35,17 @@ export function ExecutiveBrief({ children }: { children?: ReactNode }) {
   const { t, prev, ch } = d;
   if (t.inversion === undefined || t.ingresos === undefined) return null;
 
-  const ganancia = t.ingresos - t.inversion;
-  const ganPrev = prev ? prev.ingresos! - prev.inversion! : undefined;
   const rel = (a?: number, b?: number) => (a !== undefined && b ? (a - b) / Math.abs(b) : undefined);
+
+  // KPI distintos a los del Resumen ejecutivo, pensados para entenderse sin fórmulas
+  const dias = (r: { from: string; to: string }) => monthsBetween(r).reduce((n, m) => n + new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate(), 0);
+  const leadsDia = t.leads !== undefined ? t.leads / dias(range) : undefined;
+  const leadsDiaPrev = prev?.leads !== undefined && cmp ? prev.leads / dias(cmp) : undefined;
+  const porInscripcion = t.leads !== undefined && t.ventas ? t.leads / t.ventas : undefined;
+  const porInscripcionPrev = prev?.leads !== undefined && prev.ventas ? prev.leads / prev.ventas : undefined;
+  const porMil = t.ventas !== undefined && t.inversion ? (t.ventas / t.inversion) * 1000 : undefined;
+  const porMilPrev = prev?.ventas !== undefined && prev.inversion ? (prev.ventas / prev.inversion) * 1000 : undefined;
+  const dec1 = (v?: number) => (v === undefined ? '—' : v.toLocaleString('es-GT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 
   // Mejor y peor red por costo por venta
   const sorted = [...ch].sort((a, b) => (a.cpa ?? Infinity) - (b.cpa ?? Infinity));
@@ -73,31 +81,29 @@ export function ExecutiveBrief({ children }: { children?: ReactNode }) {
   return (
     <div className="space-y-6">
       <section aria-labelledby="sec-kpi">
-      <SectionTitle id="sec-kpi" n={1} title="KPI clave" note={`Los 3 números que resumen ${labelRange(range)}${prev ? ` y su cambio frente a ${labelRange(cmp!)}` : ''}.`} />
+      <SectionTitle id="sec-kpi" n={1} title="KPI clave" note={`Tres números para entender el ritmo del negocio en ${labelRange(range)} (distintos a los del Resumen ejecutivo)${prev ? ` y su cambio frente a ${labelRange(cmp!)}` : ''}.`} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Kpi
-          label="Ganancia sobre la publicidad"
-          value={fmt(ganancia, 'Q')}
-          delta={rel(ganancia, ganPrev)}
+          label="Interesados por día"
+          value={leadsDia === undefined ? '—' : `${Math.round(leadsDia)} al día`}
+          delta={rel(leadsDia, leadsDiaPrev)}
           deltaLabel={prev ? cmpLabel : undefined}
-          explain={`Lo que queda de la venta después de pagar la publicidad: ${fmt(t.ingresos, 'Q')} vendidos − ${fmt(t.inversion, 'Q')} invertidos. No descuenta renta ni planilla.`}
+          explain={`En promedio llegan ${Math.round(leadsDia ?? 0)} personas cada día pidiendo información (${fmt(t.leads)} leads en ${dias(range)} días). Es el ritmo que el equipo de ventas debe atender.`}
         />
         <Kpi
-          label="ROI"
-          value={fmt(t.roi, '%2')}
-          delta={prev && t.roi !== undefined && prev.roi !== undefined ? t.roi - prev.roi : undefined}
-          deltaKind="pp"
+          label="Interesados por cada inscripción"
+          value={porInscripcion === undefined ? '—' : `1 de cada ${dec1(porInscripcion)}`}
+          delta={rel(porInscripcion, porInscripcionPrev)}
           higherIsBetter={false}
           deltaLabel={prev ? cmpLabel : undefined}
-          explain={`Inversión ÷ venta, como en el Excel. De cada Q 100 vendidos, Q ${((t.roi ?? 0) * 100).toFixed(2)} se fueron en publicidad. Más bajo es mejor.`}
+          explain={`Hay que atender a unas ${Math.round(porInscripcion ?? 0)} personas interesadas para lograr una inscripción. Mientras menos, mejor: significa que el seguimiento convence más rápido.`}
         />
         <Kpi
-          label="Costo por venta"
-          value={fmt(t.cpa, 'Q2')}
-          delta={rel(t.cpa, prev?.cpa)}
-          higherIsBetter={false}
+          label="Inscripciones por cada Q 1,000 en publicidad"
+          value={porMil === undefined ? '—' : `${dec1(porMil)} inscripciones`}
+          delta={rel(porMil, porMilPrev)}
           deltaLabel={prev ? cmpLabel : undefined}
-          explain={`Lo que costó en publicidad conseguir cada inscripción: ${fmt(t.inversion, 'Q')} ÷ ${fmt(t.ventas)} ventas cerradas.`}
+          explain={`Cada Q 1,000 invertidos en anuncios trajeron ${dec1(porMil)} clientes nuevos. Sirve para calcular cuántas inscripciones esperar si se sube o baja el presupuesto.`}
         />
       </div>
 
