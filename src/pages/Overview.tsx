@@ -75,8 +75,8 @@ export function Overview() {
     const roiCards: (KpiCardProps & { key: string })[] = [];
     if (t.roi !== undefined) {
       roiCards.push({
-        key: 'roi', label: 'ROI', icon: <TrendingUp size={14} />, unit: '%', value: t.roi,
-        help: 'Beneficio neto ÷ inversión × 100. Beneficio neto = ventas − inversión (o ventas × margen − inversión si se define el margen en ROI y costos).',
+        key: 'roi', label: 'ROI', icon: <TrendingUp size={14} />, unit: '%2', value: t.roi,
+        help: 'Como en el Excel: inversión ÷ total de venta × 100. Qué parte de la venta se fue en publicidad; más bajo es mejor (9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad).', higherIsBetter: false,
         delta: p?.roi !== undefined ? t.roi - p.roi : undefined, deltaKind: 'pp', compareLabel: prevLabel,
         spark: roi.months.map((m) => m.roi ?? null), sparkPeriods: roi.months.map((m) => m.period), color: c.up, onOpen: () => setPage('roi'),
       } as KpiCardProps & { key: string });

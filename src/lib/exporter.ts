@@ -74,7 +74,7 @@ export function exportXlsx(ds: Dataset, scope: CompanyScope, range: DateRange) {
     for (const c of roiByChannel(ds, scope, range).rows) rows.push([c.canal, r2(c.inversion), r2(c.ingresos), r2(c.roi), r2(c.roas), r2(c.cpa), r2(c.costoPorQuetzal)]);
     rows.push([], ['Mes', 'Inversión (Q)', 'Ingresos (Q)', 'ROI', 'ROAS', 'Costo por venta (Q)', 'Costo por cliente nuevo (Q)']);
     for (const m of roiByMonth(ds, scope, range)) rows.push([m.period, r2(m.inversion), r2(m.ingresos), r2(m.roi), r2(m.roas), r2(m.cpa), r2(m.cac)]);
-    rows.push([], ['Total', r2(rt.inversion), r2(rt.ingresos), r2(rt.roi), r2(rt.roas), r2(rt.cpa), r2(rt.cac)], [], ['ROI = (retorno − inversión) ÷ inversión. Retorno = ingresos × margen bruto si está definido.']);
+    rows.push([], ['Total', r2(rt.inversion), r2(rt.ingresos), r2(rt.roi), r2(rt.roas), r2(rt.cpa), r2(rt.cac)], [], ['ROI = inversión ÷ total de venta, como en el Excel (más bajo es mejor).']);
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'ROI');
   }
   XLSX.writeFile(wb, `${slug(scopeName(ds, scope))}-${range.from}_${range.to}.xlsx`);
@@ -179,7 +179,7 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
     body: rows.map((r, i) => [
       labelLong(r.period),
       ...cols.map((m) => fmt(r.values[m], METRICS[m].unit)),
-      ...(withRoi ? [fmt(roiM[i].inversion, 'Q'), fmt(roiM[i].roi, '%'), fmt(roiM[i].costoConsulta, 'Q2')] : []),
+      ...(withRoi ? [fmt(roiM[i].inversion, 'Q'), fmt(roiM[i].roi, '%2'), fmt(roiM[i].costoConsulta, 'Q2')] : []),
     ]),
     theme: 'plain',
     styles: { font: 'helvetica', fontSize: 8.5, textColor: ink, cellPadding: 5 },
@@ -228,7 +228,7 @@ export function exportPdf(ds: Dataset, scope: CompanyScope, range: DateRange, ch
     doc.setPage(p);
     doc.setFontSize(7.5);
     doc.setTextColor(...muted);
-    doc.text('Cierre = ventas cerradas ÷ leads · Ticket = ingresos ÷ ventas · ROI = beneficio neto ÷ inversión × 100 · CPL = inversión ÷ leads', M, 820);
+    doc.text('Cierre = ventas cerradas ÷ leads · Ticket = ingresos ÷ ventas · ROI = inversión ÷ venta × 100 · CPL = inversión ÷ leads', M, 820);
     doc.text(`${p} / ${pages}`, W - M, 820, { align: 'right' });
   }
   doc.save(`reporte-${slug(scopeName(ds, scope))}-${range.from}_${range.to}.pdf`);

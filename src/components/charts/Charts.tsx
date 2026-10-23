@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject, type MutableRefObject } from 'react';
 import { useCursor } from '../../lib/live';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -108,6 +108,133 @@ export function useSparkIndex(data: (number | null)[], periods?: string[]) {
   return { dataIndex: pts[k].i, prevIndex: k > 0 ? pts[k - 1].i : null };
 }
 
+/* Dibujo de líneas ------------------------------------------------------ */
+const DRAW_MS = 1700;
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+/** Punto de una curva SVG para una x dada (las curvas avanzan de izquierda a derecha) */
+function pointAtX(path: SVGPathElement, x: number) {
+  const total = path.getTotalLength();
+  let lo = 0;
+  let hi = total;
+  for (let k = 0; k < 22; k++) {
+    const mid = (lo + hi) / 2;
+    if (path.getPointAtLength(mid).x < x) lo = mid;
+    else hi = mid;
+  }
+  return path.getPointAtLength((lo + hi) / 2);
+}
+
+/**
+ * Al montarse (cada vez que cambia el mes o el período, porque la tarjeta del gráfico se vuelve a montar),
+ * la línea se dibuja de izquierda a derecha una sola vez y en la punta corre un número que
+ * sube o baja siguiendo la inclinación de la curva.
+ */
+function useLineDraw(opts: {
+  wrap: RefObject<HTMLDivElement>;
+  clipRect: RefObject<SVGRectElement>;
+  labels: MutableRefObject<Record<string, HTMLDivElement | null>>;
+  series: { key: string; values: (number | undefined)[]; unit: Unit }[];
+  enabled: boolean;
+}) {
+  const [done, setDone] = useState(!opts.enabled);
+  const [fade, setFade] = useState(!opts.enabled);
+  const seriesRef = useRef(opts.series);
+  seriesRef.current = opts.series;
+  useEffect(() => {
+    if (!opts.enabled) return;
+    let raf = 0;
+    let tm = 0;
+    // requestAnimationFrame se pausa si la ventana no se está pintando; el temporizador garantiza que el dibujo avance y termine
+    const next = () => {
+      let fired = false;
+      raf = requestAnimationFrame((now) => {
+        fired = true;
+        window.clearTimeout(tm);
+        frame(now);
+      });
+      tm = window.setTimeout(() => {
+        if (fired) return;
+        cancelAnimationFrame(raf);
+        frame(performance.now());
+      }, 40);
+    };
+    const born = performance.now();
+    let start = 0;
+    let fadeTimer = 0;
+    const frame = (now: number) => {
+      const wrap = opts.wrap.current;
+      const rect = opts.clipRect.current;
+      const list = seriesRef.current;
+      const paths = list.map((sr) => wrap?.querySelector<SVGPathElement>(`.ba-s-${sr.key} .recharts-area-curve, .ba-s-${sr.key} .recharts-line-curve`) ?? null);
+      // Esperamos a que el gráfico tenga tamaño y trazos
+      if (!wrap || !rect || !paths[0] || !paths[0].getTotalLength()) {
+        // Si el gráfico no llega a tener trazos, se muestra completo sin animación
+        if (now - born > 3000) {
+          setDone(true);
+          setFade(true);
+          return;
+        }
+        next();
+        return;
+      }
+      if (!start) start = now;
+      const t = Math.min(1, (now - start) / DRAW_MS);
+      const p = easeInOut(t);
+      // Extensión horizontal de todas las líneas visibles
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      for (const ph of paths) {
+        if (!ph) continue;
+        const b = ph.getBBox();
+        x0 = Math.min(x0, b.x);
+        x1 = Math.max(x1, b.x + b.width);
+      }
+      const tipX = x0 + p * (x1 - x0);
+      rect.setAttribute('width', String(Math.max(0, tipX + 6)));
+      list.forEach((sr, i) => {
+        const el = opts.labels.current[sr.key];
+        const ph = paths[i];
+        if (!el) return;
+        const present = sr.values.map((v, j) => (v === undefined ? -1 : j)).filter((j) => j >= 0);
+        if (!ph || present.length < 2) {
+          el.style.opacity = '0';
+          return;
+        }
+        const b = ph.getBBox();
+        const x = Math.min(Math.max(tipX, b.x), b.x + b.width);
+        const pt = pointAtX(ph, x);
+        // Valor: interpolado entre los meses vecinos según la posición en x
+        const f = b.width ? (x - b.x) / b.width : 1;
+        const pos = present[0] + f * (present[present.length - 1] - present[0]);
+        const a = Math.floor(pos);
+        const c2 = Math.min(Math.ceil(pos), sr.values.length - 1);
+        const va = sr.values[a] ?? sr.values[c2] ?? 0;
+        const vb = sr.values[c2] ?? va;
+        const v = va + (vb - va) * (pos - a);
+        el.style.opacity = '1';
+        el.style.transform = `translate(${pt.x}px, ${pt.y}px)`;
+        const txt = el.querySelector('[data-v]');
+        if (txt) txt.textContent = fmt(v, sr.unit);
+      });
+      if (t < 1) next();
+      else {
+        setDone(true);
+        fadeTimer = window.setTimeout(() => setFade(true), 1400);
+      }
+    };
+    next();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(tm);
+      window.clearTimeout(fadeTimer);
+    };
+    // Solo al montar: el dibujo ocurre una vez por cambio de mes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return { done, fade };
+}
+
 /* Tendencia principal -------------------------------------------------- */
 const TREND_METRICS: SeriesMetric[] = ['ingresos', 'ventas', 'visitas', 'consultas'];
 
@@ -133,7 +260,12 @@ export function TrendChart({
 }) {
   const c = useChartColors();
   const dur = useAnimDuration(650);
+  const reduce = useReducedMotion();
   const [active, setActive] = useState<Set<string>>(new Set(initial));
+  const uid = `td${useId().replace(/:/g, '')}`;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const clipRef = useRef<SVGRectElement>(null);
+  const labelRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [compare, setCompare] = useState(false);
   const [brush, setBrush] = useState<{ start: number; end: number } | null>(null);
   const colorOf = (m: SeriesMetric) => c.series[metrics.indexOf(m) % c.series.length];
@@ -167,6 +299,14 @@ export function TrendChart({
       return n;
     });
 
+  const draw = useLineDraw({
+    wrap: wrapRef,
+    clipRect: clipRef,
+    labels: labelRefs,
+    series: shown.map((m) => ({ key: m, values: rows.map((r) => r.values[m]), unit: METRICS[m].unit })),
+    enabled: !reduce && rows.length > 1,
+  });
+
   if (!available.length) return null;
 
   return (
@@ -194,7 +334,28 @@ export function TrendChart({
           )}
         </div>
       </div>
-      <div style={{ height }} className="w-full">
+      <div ref={wrapRef} style={{ height }} className={cx('relative w-full', uid)}>
+        {!draw.done && <style>{`.${uid} .ba-main { clip-path: url(#${uid}-clip); }`}</style>}
+        {!draw.fade &&
+          shown.map((m) => (
+            <div
+              key={m}
+              ref={(el) => {
+                labelRefs.current[m] = el;
+              }}
+              aria-hidden
+              data-noexport="1"
+              className={cx('pointer-events-none absolute left-0 top-0 z-10 transition-opacity duration-500', draw.done && '!opacity-0 delay-700')}
+              style={{ opacity: 0, willChange: 'transform' }}
+            >
+              <span className="absolute -left-[5px] -top-[5px] h-[10px] w-[10px] rounded-full border-2" style={{ background: colorOf(m), borderColor: c.surface }} />
+              <span
+                data-v
+                className="tnum absolute bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md px-2 py-0.5 text-[12px] font-semibold text-white shadow-pop"
+                style={{ background: colorOf(m) }}
+              />
+            </div>
+          ))}
         <ResponsiveContainer>
           <ComposedChart
             data={data}
@@ -205,6 +366,9 @@ export function TrendChart({
             style={{ cursor: onPointClick ? 'pointer' : undefined }}
           >
             <defs>
+              <clipPath id={`${uid}-clip`}>
+                <rect ref={clipRef} x={0} y={-50} width={draw.done ? 99999 : 0} height={4000} />
+              </clipPath>
               {shown.map((m) => (
                 <linearGradient key={m} id={`g-${m}`} x1="0" x2="0" y1="0" y2="1">
                   <stop offset="0%" stopColor={colorOf(m)} stopOpacity={0.18} />
@@ -262,8 +426,9 @@ export function TrendChart({
                 stroke: color,
                 strokeWidth: 2,
                 connectNulls: false,
-                animationDuration: dur,
-                animationEasing: 'ease-out' as const,
+                // El dibujo lo hace useLineDraw; la animación propia de Recharts se apaga para no duplicarla
+                isAnimationActive: false,
+                className: `ba-main ba-s-${m}`,
                 dot: { r: 2.5, fill: c.surface, stroke: color, strokeWidth: 1.5 },
                 activeDot: { r: 5.5, fill: color, stroke: c.surface, strokeWidth: 2 },
                 name: METRICS[m].label,

@@ -46,7 +46,7 @@ function MoneyInput({ value, onCommit, label, suffix = 'Q', placeholder = 'Q 0' 
 
 function RoiValue({ v }: { v?: number }) {
   if (v === undefined) return <span className="text-faint">—</span>;
-  return <span className={cx('font-semibold', v >= 0 ? 'text-up' : 'text-down')}>{fmt(v, '%')}</span>;
+  return <span className="font-semibold text-ink">{fmt(v, '%2')}</span>;
 }
 
 function Stat({ label, value, help, tone }: { label: string; value: string; help: string; tone?: 'up' | 'down' }) {
@@ -155,12 +155,8 @@ export function Roi() {
           tone={total.beneficio === undefined ? undefined : total.beneficio >= 0 ? 'up' : 'down'}
           help={margen !== undefined ? `Ventas × ${fmt(margen, '%')} de margen − inversión.` : 'Ventas − inversión, como en el reporte. No descuenta renta, planilla ni otros gastos del gimnasio.'}
         />
-        <Stat label="ROI" value={total.roi === undefined ? '—' : fmt(total.roi, '%')} tone={total.roi === undefined ? undefined : total.roi >= 0 ? 'up' : 'down'} help="Beneficio neto ÷ inversión × 100." />
-        <Stat
-          label="Inversión ÷ venta"
-          value={total.costoPorQuetzal === undefined ? '—' : fmt(total.costoPorQuetzal, '%')}
-          help="Qué parte de la venta se fue en publicidad. En el Excel aparece con el nombre ROI (inversión ÷ total de venta). Más bajo es mejor."
-        />
+        <Stat label="ROI" value={total.roi === undefined ? '—' : fmt(total.roi, '%2')} help="Como en el Excel: inversión ÷ total de venta × 100. Qué parte de la venta se fue en publicidad; más bajo es mejor (9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad)." />
+        <Stat label="ROAS" value={total.roas === undefined ? '—' : `${total.roas.toFixed(2)}×`} help="Ventas ÷ inversión: quetzales vendidos por cada quetzal de publicidad." />
         <Stat label="CPL" value={fmt(total.costoConsulta, 'Q2')} help="Costo por lead: inversión ÷ leads recibidos." />
         <Stat label="CPA" value={fmt(total.cpa, 'Q2')} help="Costo por venta cerrada: inversión ÷ ventas cerradas." />
         <Stat
@@ -286,7 +282,7 @@ export function Roi() {
               <p className="mt-4 text-[12.5px] text-ink">{margen !== undefined ? `Margen común: ${fmt(margen, '%')}` : 'Las empresas tienen márgenes distintos o sin definir.'}</p>
             )}
             <div className="mt-4">
-              {margen !== undefined ? <Tag tone="up">ROI con margen</Tag> : <Tag tone="warn">ROI como en el reporte: ventas − inversión</Tag>}
+              {margen !== undefined ? <Tag tone="up">Beneficio neto con margen</Tag> : <Tag tone="warn">Beneficio neto = ventas − inversión</Tag>}
             </div>
             {total.ventasEquilibrio !== undefined && (
               <div className="mt-5 rounded-xl bg-sunken p-3.5">
@@ -303,7 +299,7 @@ export function Roi() {
 
       {hasChannelCosts && chartCh.length > 0 && (
         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <ChartCard title="ROI por canal" subtitle={margen !== undefined ? 'Sobre utilidad bruta' : 'Sobre ingresos'} exportName="roi-por-canal">
+          <ChartCard title="ROI por red" subtitle="Inversión ÷ venta de cada red. Más bajo es mejor." exportName="roi-por-canal">
             <div style={{ height: Math.max(200, chartCh.length * 50) }}>
               <ResponsiveContainer>
                 <BarChart data={chartCh} layout="vertical" margin={{ top: 4, right: 80, left: 8, bottom: 0 }}>
@@ -319,7 +315,7 @@ export function Roi() {
                         <ChartTip
                           title={d.canal}
                           rows={[
-                            { label: 'ROI', value: d.roi, unit: '%', color: d.roi >= 0 ? c.up : c.down },
+                            { label: 'ROI', value: d.roi, unit: '%2', color: c.series[0] },
                             { label: 'Inversión', value: d.inversion, unit: 'Q', color: c.faint },
                             { label: 'Ingresos', value: d.ingresos, unit: 'Q', color: c.series[0] },
                           ]}
@@ -327,9 +323,9 @@ export function Roi() {
                       );
                     }}
                   />
-                  <Bar dataKey="roi" radius={[0, 4, 4, 0]} maxBarSize={24} animationDuration={dur} label={{ position: 'right', fill: c.muted, fontSize: 11.5, formatter: (v: number) => fmt(v, '%') }}>
+                  <Bar dataKey="roi" radius={[0, 4, 4, 0]} maxBarSize={24} animationDuration={dur} label={{ position: 'right', fill: c.muted, fontSize: 11.5, formatter: (v: number) => fmt(v, '%2') }}>
                     {chartCh.map((d) => (
-                      <Cell key={d.canal} fill={d.roi >= 0 ? c.up : c.down} />
+                      <Cell key={d.canal} fill={c.series[0]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -410,7 +406,7 @@ export function Roi() {
       </Card>
 
       {hasMonthCosts && (
-        <ChartCard className="mt-3" title="Inversión, ventas y ROI por mes" subtitle={margen !== undefined ? 'ROI con margen bruto' : 'ROI como en el reporte: (ventas − inversión) ÷ inversión'} exportName="roi-mensual">
+        <ChartCard className="mt-3" title="Inversión, ventas y ROI por mes" subtitle="ROI como en el Excel: inversión ÷ total de venta" exportName="roi-mensual">
           <div className="h-[300px]">
             <ResponsiveContainer>
               <ComposedChart data={chartMonths} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -430,7 +426,7 @@ export function Roi() {
                         rows={[
                           { label: 'Inversión', value: d.inversion, unit: 'Q', color: c.warn },
                           { label: 'Ventas', value: d.ingresos, unit: 'Q', color: c.series[0] },
-                          { label: 'ROI', value: d.roi, unit: '%', color: c.up },
+                          { label: 'ROI', value: d.roi, unit: '%2', color: c.up },
                           { label: 'CPL', value: d.cpl, unit: 'Q2', color: c.faint },
                           { label: 'CPA', value: d.cpa, unit: 'Q2', color: c.faint },
                         ]}

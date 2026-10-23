@@ -288,19 +288,19 @@ export const rulesProvider: InsightProvider = {
         title: 'Falta la inversión para calcular el ROI',
         figure: 'Sin costos',
         body: 'Los datos no incluyen cuánto se invirtió en publicidad ni en cada canal. Regístralo en la sección ROI y costos para ver el retorno, el costo por venta y el costo por cliente nuevo.',
-        basis: 'ROI = (retorno − inversión) ÷ inversión. Sin inversión no se puede calcular.',
+        basis: 'ROI = inversión ÷ total de venta. Sin inversión no se puede calcular.',
         weight: 8,
       });
     } else {
       if (rt.roi !== undefined) {
         out.push({
           id: 'roi-total',
-          tone: rt.roi >= 0 ? 'positive' : 'negative',
+          tone: (rt.beneficio ?? 0) >= 0 ? 'positive' : 'negative',
           category: 'ROI',
-          title: rt.roi >= 0 ? 'La inversión del período se recuperó' : 'La inversión del período no se recuperó',
-          figure: fmt(rt.roi, '%'),
-          body: `Inversión ${fmt(rt.inversion, 'Q')} y ventas de ${fmt(rt.ingresos, 'Q')}: beneficio neto de ${fmt(rt.beneficio, 'Q')}. Cada lead costó ${fmt(rt.costoConsulta, 'Q2')} y cada venta cerrada ${fmt(rt.cpa, 'Q2')}.`,
-          basis: 'ROI = beneficio neto ÷ inversión × 100. Sin margen definido, beneficio neto = ventas − inversión (no descuenta otros gastos).',
+          title: (rt.beneficio ?? 0) >= 0 ? 'La inversión del período se recuperó' : 'La inversión del período no se recuperó',
+          figure: fmt(rt.roi, '%2'),
+          body: `ROI ${fmt(rt.roi, '%2')}: la publicidad fue ${fmt(rt.roi, '%2')} de la venta. Inversión ${fmt(rt.inversion, 'Q')} y ventas de ${fmt(rt.ingresos, 'Q')}: beneficio neto de ${fmt(rt.beneficio, 'Q')}. Cada lead costó ${fmt(rt.costoConsulta, 'Q2')} y cada venta cerrada ${fmt(rt.cpa, 'Q2')}.`,
+          basis: 'ROI = inversión ÷ total de venta × 100, como en el Excel (más bajo es mejor). Beneficio neto = ventas − inversión (no descuenta otros gastos).',
           weight: 12,
         });
       }
@@ -321,22 +321,23 @@ export const rulesProvider: InsightProvider = {
             weight: 11,
           });
         }
-        const best = rm.reduce((a, b) => ((b.roi ?? -Infinity) > (a.roi ?? -Infinity) ? b : a));
-        const worst = rm.reduce((a, b) => ((b.roi ?? Infinity) < (a.roi ?? Infinity) ? b : a));
+        // ROI del Excel: el mejor mes es el de menor inversión ÷ venta
+        const best = rm.reduce((a, b) => ((b.roi ?? Infinity) < (a.roi ?? Infinity) ? b : a));
+        const worst = rm.reduce((a, b) => ((b.roi ?? -Infinity) > (a.roi ?? -Infinity) ? b : a));
         if (best.roi !== undefined && worst.roi !== undefined && best.period !== worst.period) {
           out.push({
             id: 'roi-months',
             tone: 'neutral',
             category: 'ROI',
             title: `${labelLong(best.period)} fue el mes más rentable`,
-            figure: fmt(best.roi, '%'),
-            body: `Con la misma inversión, ${labelLong(worst.period)} tuvo el ROI más bajo (${fmt(worst.roi, '%')}).`,
-            basis: 'ROI mensual = (ventas − inversión) ÷ inversión, o con margen si está definido.',
+            figure: fmt(best.roi, '%2'),
+            body: `Con la misma inversión, ${labelLong(worst.period)} tuvo el ROI más alto, es decir el peor (${fmt(worst.roi, '%2')}).`,
+            basis: 'ROI mensual = inversión ÷ venta del mes, como en el Excel. Más bajo es mejor.',
             weight: 9,
           });
         }
       }
-      const rc = roiByChannel(ds, scope, range).rows.filter((r) => r.roi !== undefined).sort((a, b) => b.roi! - a.roi!);
+      const rc = roiByChannel(ds, scope, range).rows.filter((r) => r.roi !== undefined).sort((a, b) => a.roi! - b.roi!);
       if (rc.length >= 2) {
         const best = rc[0];
         const worst = rc[rc.length - 1];
@@ -345,9 +346,9 @@ export const rulesProvider: InsightProvider = {
           tone: 'neutral',
           category: 'ROI',
           title: `${best.canal} devuelve más por cada quetzal invertido`,
-          figure: fmt(best.roi, '%'),
-          body: `Costo por venta ${fmt(best.cpa, 'Q2')}. El menor retorno es ${worst.canal} (${fmt(worst.roi, '%')}, costo por venta ${fmt(worst.cpa, 'Q2')}).`,
-          basis: 'ROI por canal con los ingresos atribuidos a cada canal en el archivo. Es atribución declarada, no causal.',
+          figure: fmt(best.roi, '%2'),
+          body: `Costo por venta ${fmt(best.cpa, 'Q2')}. El menor retorno es ${worst.canal} (${fmt(worst.roi, '%2')}, costo por venta ${fmt(worst.cpa, 'Q2')}).`,
+          basis: 'ROI por red = inversión de la red ÷ su venta estimada (cerrados × ticket del mes). Más bajo es mejor.',
           weight: 11,
         });
       }

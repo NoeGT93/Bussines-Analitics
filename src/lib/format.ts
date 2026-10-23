@@ -4,7 +4,8 @@ const nf1 = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 1, minimumFr
 const nf2 = new Intl.NumberFormat('es-GT', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 const money = (v: number, f: Intl.NumberFormat) => `${v < 0 ? '−' : ''}Q ${f.format(Math.abs(v))}`;
 
-export type Unit = 'Q' | 'n' | '%' | 'Q2';
+/** '%2' = porcentaje con dos decimales (ROI, como en el Excel) */
+export type Unit = 'Q' | 'n' | '%' | '%2' | 'Q2';
 
 export function fmt(value: number | undefined | null, unit: Unit = 'n'): string {
   if (value === undefined || value === null || Number.isNaN(value)) return '—';
@@ -15,6 +16,8 @@ export function fmt(value: number | undefined | null, unit: Unit = 'n'): string 
       return money(value, nf2);
     case '%':
       return `${nf1.format(value * 100)} %`;
+    case '%2':
+      return `${nf2.format(value * 100)} %`;
     default:
       return nf0.format(value);
   }
@@ -24,7 +27,7 @@ export function fmt(value: number | undefined | null, unit: Unit = 'n'): string 
 export function compact(value: number, unit: Unit = 'n'): string {
   const abs = Math.abs(value);
   const prefix = unit === 'Q' || unit === 'Q2' ? 'Q' : '';
-  if (unit === '%') return `${Math.round(value * 1000) / 10}%`;
+  if (unit === '%' || unit === '%2') return `${Math.round(value * 1000) / 10}%`;
   if (abs >= 1_000_000) return `${prefix}${(value / 1_000_000).toFixed(1).replace('.0', '')} M`;
   if (abs >= 1_000) return `${prefix}${(value / 1_000).toFixed(1).replace('.0', '')} k`;
   return `${prefix}${Math.round(value)}`;

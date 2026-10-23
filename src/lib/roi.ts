@@ -5,9 +5,9 @@ import { monthsBetween } from './periods';
 /**
  * ROI y costos de retorno.
  * Fórmulas (todas en quetzales):
- *  - ROI = beneficio neto ÷ inversión × 100
- *    Beneficio neto = ventas × margen bruto − inversión. Sin margen definido: ventas − inversión
- *    (así lo calcula el reporte del negocio; no descuenta renta, planilla ni otros gastos).
+ *  - ROI = inversión ÷ total de venta × 100, como en el Excel del negocio (más bajo es mejor)
+ *  - Beneficio neto = ventas × margen bruto − inversión. Sin margen definido: ventas − inversión
+ *    (no descuenta renta, planilla ni otros gastos).
  *  - ROAS = ingresos ÷ inversión
  *  - Costo por venta (CPA) = inversión ÷ ventas
  *  - Costo por cliente nuevo (CAC) = inversión ÷ clientes nuevos
@@ -41,7 +41,8 @@ function compute(inv: number | undefined, x: { ingresos?: number; ventas?: numbe
   if (!inv || inv <= 0) return out;
   if (out.retorno !== undefined) out.beneficio = out.retorno - inv;
   if (x.ingresos !== undefined) {
-    out.roi = (x.ingresos * m - inv) / inv;
+    // ROI del reporte: inversión ÷ total de venta
+    if (x.ingresos > 0) out.roi = inv / x.ingresos;
     out.roas = x.ingresos / inv;
     if (x.ingresos > 0) out.costoPorQuetzal = inv / x.ingresos;
   }
@@ -149,13 +150,12 @@ export function adMetrics(ds: Dataset, scope: CompanyScope, range: DateRange) {
 }
 
 export const ROI_GLOSSARY: { term: string; formula: string; reading: string; needs?: string }[] = [
-  { term: 'ROI', formula: 'Beneficio neto ÷ inversión × 100', reading: 'Si la inversión terminó siendo rentable. Beneficio neto = ventas − inversión (o ventas × margen − inversión si defines el margen). 500 % = por cada Q 1 invertido regresaron Q 5 de beneficio.' },
+  { term: 'ROI', formula: 'Inversión ÷ total de venta × 100', reading: 'Como en el Excel: qué parte de la venta se fue en publicidad. 9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad. Más bajo es mejor.' },
   { term: 'CPL', formula: 'Inversión ÷ leads recibidos', reading: 'Costo por contacto: cuánto cuesta cada persona que escribe, llena un formulario o pregunta.' },
   { term: 'CPA', formula: 'Inversión ÷ ventas cerradas', reading: 'Costo por acción o conversión: cuánto cuesta cada lead que termina inscribiéndose.' },
   { term: 'CPM', formula: 'Inversión en anuncios ÷ impresiones × 1,000', reading: 'Costo por mil impresiones: cuánto cuesta que el anuncio se muestre mil veces.', needs: 'Impresiones del administrador de anuncios' },
   { term: 'CPC', formula: 'Inversión en anuncios ÷ clics', reading: 'Costo por clic en el anuncio.', needs: 'Clics del administrador de anuncios' },
   { term: 'CTR', formula: 'Clics ÷ impresiones', reading: 'Qué porcentaje de quienes vieron el anuncio hizo clic.', needs: 'Impresiones y clics' },
   { term: 'ROAS', formula: 'Ventas ÷ inversión', reading: 'Quetzales vendidos por cada quetzal invertido. 6× = Q 6 de venta por cada Q 1 de publicidad.' },
-  { term: 'Costo por quetzal vendido', formula: 'Inversión ÷ ventas (Q)', reading: 'Qué parte de la venta se fue en publicidad. En el Excel aparece con el nombre ROI (inversión ÷ total de venta): 9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad. Es el inverso del ROAS.' },
   { term: 'Ventas para recuperar la inversión', formula: 'Inversión ÷ (ticket promedio × margen)', reading: 'Punto de equilibrio: cuántas inscripciones hacen falta para pagar lo invertido.' },
 ];

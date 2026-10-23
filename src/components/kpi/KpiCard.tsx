@@ -31,7 +31,7 @@ function LiveReadout({ spark, periods, unit, higherIsBetter = true }: { spark: (
   if (!si) return null;
   const v = spark[si.dataIndex]!;
   const prev = si.prevIndex !== null ? spark[si.prevIndex] : null;
-  const isRate = unit === '%';
+  const isRate = unit === '%' || unit === '%2';
   const d = prev !== null && prev !== undefined ? (isRate ? v - prev : prev ? (v - prev) / Math.abs(prev) : undefined) : undefined;
   const up = d !== undefined && d > 0.0005;
   const down = d !== undefined && d < -0.0005;

@@ -24,7 +24,7 @@ npm run build:single  # un solo HTML liviano; las librerías se cargan desde CDN
 | Resumen ejecutivo | Resultado del mes o acumulado del período (inversión, venta, venta − inversión), comparativa contra otro período (indicadores y por red), tarjetas de ingresos, cierres, leads, ROI, CPL y CPA, evolución mensual, hallazgos y corte diario de leads |
 | Leads por red | Leads y cierres por mes y por red, tasa de cierre |
 | Alcance y clics | Alcance, impresiones, clics, CTR, CPC, CPM, interacciones y seguidores por red (estimados a partir del Excel) |
-| ROI y costos | ROI, inversión ÷ venta (el "ROI" del Excel), CPL, CPA y CTR; costo por red y retorno mes a mes |
+| ROI y costos | ROI (inversión ÷ venta, como en el Excel), ROAS, CPL, CPA y CTR; costo por red y retorno mes a mes |
 | Gestión de datos | Importación Excel/CSV, corte diario de leads, edición, empresas, respaldo |
 
 ## Filtros
@@ -55,8 +55,8 @@ El reporte que se comparte por WhatsApp (leads en el día, a la fecha y cerrados
 ### Observaciones de los datos
 
 - La inversión es Q 50,000 todos los meses, repartida por red; con eso se calculan el CPL y el CPA de cada red.
-- En el Excel, "ROI" es inversión ÷ total de venta (9.95 % en enero). En la plataforma se muestra como **Inversión ÷ venta**; el ROI de la plataforma es (venta − inversión) ÷ inversión.
-- El ROI sigue a las ventas: de 1,194 % en julio a 370 % en agosto, con la misma inversión.
+- **ROI = inversión ÷ total de venta × 100**, igual que en el Excel (9.95 % en enero). Más bajo es mejor.
+- El ROI sigue a las ventas: de 7.73 % en julio (el mejor mes) a 21.26 % en agosto (el peor), con la misma inversión.
 - El CPL pasó de Q 26.14 (enero) a Q 60.98 (septiembre) porque los leads bajaron de 1,913 a 820.
 - En el corte del 20 de octubre el cierre acumulado es 3.0 % (35 de 1,155), muy por debajo del 13–24 % mensual; conviene confirmar si los cerrados del corte están al día.
 - **Estimados** (no vienen en el Excel): ingresos por red = cerrados × ticket del mes; impresiones = inversión ÷ CPM de referencia × 1,000; clics = leads ÷ tasa de lead por clic; alcance = impresiones ÷ frecuencia; interacciones, reproducciones y seguidores con tasas de referencia por red (`src/lib/estimates.ts`). Al importar los datos del administrador de anuncios se reemplazan.
@@ -65,7 +65,7 @@ El reporte que se comparte por WhatsApp (leads en el día, a la fecha y cerrados
 
 | Métrica | Qué significa | Fórmula |
 |---|---|---|
-| ROI | Si la inversión terminó siendo rentable | Beneficio neto ÷ inversión × 100 |
+| ROI | Qué parte de la venta se fue en publicidad (más bajo es mejor) | Inversión ÷ total de venta × 100 |
 | CPL | Costo por contacto (lead) | Inversión ÷ leads recibidos |
 | CPA | Costo por acción o conversión | Inversión ÷ ventas cerradas |
 | CPM | Costo por mil impresiones | Inversión en anuncios ÷ impresiones × 1,000 |

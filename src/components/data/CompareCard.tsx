@@ -70,7 +70,7 @@ export function CompareCard() {
       { key: 'ventas', label: 'Ventas cerradas', unit: 'n', a: A.ventas, b: B.ventas },
       { key: 'cierre', label: 'Tasa de cierre', unit: '%', a: A.cierre, b: B.cierre, rate: true },
       { key: 'ticket', label: 'Ticket promedio', unit: 'Q2', a: A.ticket, b: B.ticket },
-      { key: 'roi', label: 'ROI', unit: '%', a: A.roi, b: B.roi, rate: true },
+      { key: 'roi', label: 'ROI (inversión ÷ venta)', unit: '%2', a: A.roi, b: B.roi, rate: true, higherIsBetter: false },
       { key: 'cpl', label: 'Costo por lead (CPL)', unit: 'Q2', a: A.cpl, b: B.cpl, higherIsBetter: false },
       { key: 'cpa', label: 'Costo por venta (CPA)', unit: 'Q2', a: A.cpa, b: B.cpa, higherIsBetter: false },
       { key: 'alcance', label: 'Alcance', unit: 'n', a: A.alcance, b: B.alcance, estimado: true },
