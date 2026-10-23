@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ExternalLink, FileSpreadsheet, Info, PlugZap, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
 import { Donut } from '../components/charts/Charts';
-import { Button, Card, CardHeader, Delta, InfoTip, PageHeader, Select, Tag } from '../components/ui';
+import { Button, Card, CardHeader, cx, Delta, InfoTip, PageHeader, Select, Tag } from '../components/ui';
 import { useCompareRange, useTrendRange } from '../lib/hooks';
 import { aggSocial, SOCIAL_DEFS, socialFor, type SocialAgg } from '../lib/metrics';
 import { compact, fmt } from '../lib/format';
@@ -12,6 +12,22 @@ import { labelLong, labelRange, labelShort, monthsBetween } from '../lib/periods
 import { downloadTemplate } from '../lib/importer';
 
 type SKey = (typeof SOCIAL_DEFS)[number]['key'];
+
+/** Orden de la comparativa: primero lo que dice si la pauta deja ventas, luego su eficiencia y al final el alcance */
+const TABLE_GROUPS: { title: string; note: string; keys: string[]; main?: boolean }[] = [
+  { title: 'Resultados del negocio', note: 'lo que más importa: cuánto se invirtió y cuánto se vendió', keys: ['inversion', 'leads', 'conversiones', 'cpr', 'roas'], main: true },
+  { title: 'Eficiencia de la pauta', note: 'qué tan barato y atractivo es el anuncio', keys: ['cpc', 'ctr', 'cpm', 'clicsEnlace'] },
+  { title: 'Alcance e interacción', note: 'cuánta gente lo vio y cómo reaccionó', keys: ['alcance', 'impresiones', 'engagement', 'interacciones', 'reproducciones', 'nuevosSeguidores'] },
+];
+
+/** Qué valor es mejor en cada indicador, para marcar la mejor red */
+const BETTER: Record<string, 'high' | 'low' | undefined> = {
+  leads: 'high', conversiones: 'high', cpr: 'low', roas: 'high', cpc: 'low', ctr: 'high', cpm: 'low', clicsEnlace: 'high',
+  alcance: 'high', impresiones: 'high', engagement: 'high', interacciones: 'high', reproducciones: 'high', nuevosSeguidores: 'high',
+};
+
+/** Indicadores que vienen tal cual del Excel (los demás son estimados) */
+const REAL_KEYS = new Set(['inversion', 'leads', 'conversiones', 'cpr']);
 
 export function Social() {
   const { ds, scope, range, setPage } = useStore();
@@ -226,33 +242,69 @@ export function Social() {
           )}
 
           <Card className="mt-3">
-            <CardHeader title="Comparativa por plataforma" subtitle="Totales del período" />
+            <CardHeader
+              title="Comparativa por plataforma"
+              subtitle={`Totales de ${labelRange(range)}, ordenados de lo más importante a lo de apoyo. Toca la (i) para saber qué significa cada término; ● marca la mejor red en cada fila.`}
+            />
             <div className="scroll-thin mt-3 overflow-x-auto">
               <table className="w-full min-w-[720px] text-[12.5px]">
                 <thead>
                   <tr className="border-b border-line text-left text-faint">
                     <th className="px-5 py-2 font-medium">Indicador</th>
                     {platforms.map((p) => (
-                      <th key={p} className="px-3 py-2 text-right font-medium">
+                      <th key={p} className="px-3 py-2 text-right font-medium text-ink">
                         {p}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {available.map((d) => (
-                    <tr key={d.key} className="border-b border-line/60 last:border-0">
-                      <td className="px-5 py-2.5 text-muted">{d.label}</td>
-                      {byPlatform.map((b) => {
-                        const v = b.agg[d.key as keyof SocialAgg];
-                        return (
-                          <td key={b.platform} className="tnum px-3 py-2.5 text-right text-ink">
-                            {v === undefined ? <span className="text-faint">—</span> : d.key === 'roas' ? `${v.toFixed(2)}×` : fmt(v, d.unit)}
+                  {TABLE_GROUPS.map((g) => {
+                    const defs = g.keys.map((k) => available.find((d) => d.key === k)).filter((d): d is (typeof available)[number] => !!d);
+                    if (!defs.length) return null;
+                    return (
+                      <Fragment key={g.title}>
+                        <tr className="bg-sunken/60">
+                          <td colSpan={platforms.length + 1} className="px-5 py-2">
+                            <span className="text-[11.5px] font-semibold uppercase tracking-wide text-electric">{g.title}</span>
+                            <span className="ml-2 text-[11.5px] text-faint">{g.note}</span>
                           </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                        </tr>
+                        {defs.map((d) => {
+                          const dir = BETTER[d.key];
+                          const vals = byPlatform.map((b) => b.agg[d.key as keyof SocialAgg]).filter((v): v is number => v !== undefined);
+                          const best = dir && vals.length > 1 ? (dir === 'high' ? Math.max(...vals) : Math.min(...vals)) : undefined;
+                          const isEst = estimado && !REAL_KEYS.has(d.key);
+                          return (
+                            <tr key={d.key} className="border-b border-line/60 last:border-0">
+                              <td className={cx('px-5 py-2.5', g.main ? 'font-medium text-ink' : 'text-muted')}>
+                                <span className="inline-flex items-center gap-1.5">
+                                  {d.label}
+                                  <InfoTip text={`${d.help}${isEst ? ' Estimado a partir de la inversión y los leads del Excel.' : REAL_KEYS.has(d.key) && estimado ? ' Dato real del Excel.' : ''}`} />
+                                </span>
+                              </td>
+                              {byPlatform.map((b) => {
+                                const v = b.agg[d.key as keyof SocialAgg];
+                                const top = v !== undefined && best !== undefined && v === best;
+                                return (
+                                  <td key={b.platform} className={cx('tnum px-3 py-2.5 text-right', top ? 'font-semibold text-electric' : 'text-ink', g.main && 'text-[13px]')}>
+                                    {v === undefined ? (
+                                      <span className="text-faint">—</span>
+                                    ) : (
+                                      <>
+                                        {top && <span className="mr-1.5 text-[9px] align-middle text-aqua">●</span>}
+                                        {d.key === 'roas' ? `${v.toFixed(2)}×` : fmt(v, d.unit)}
+                                      </>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { animate, AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowDownRight, ArrowUpRight, Info, Minus, X } from 'lucide-react';
 import { fmt, pct, pp, type Unit } from '../../lib/format';
@@ -31,38 +32,64 @@ export function CardHeader({ title, subtitle, actions, help }: { title: ReactNod
 /* Tooltip informativo ------------------------------------------------ */
 export function InfoTip({ text, className }: { text: string; className?: string }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number; below: boolean } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
   const id = useId();
+  // La explicación flota sobre la página (fuera de tablas con desplazamiento) y no se sale de la pantalla
+  const show = () => {
+    const r = btn.current?.getBoundingClientRect();
+    if (r) {
+      const W = 260;
+      const left = Math.min(Math.max(8, r.left + r.width / 2 - W / 2), window.innerWidth - W - 8);
+      const below = r.bottom + 120 < window.innerHeight;
+      setPos({ left, top: below ? r.bottom + 8 : r.top - 8, below });
+    }
+    setOpen(true);
+  };
+  useEffect(() => {
+    if (!open) return;
+    const hide = () => setOpen(false);
+    window.addEventListener('scroll', hide, true);
+    return () => window.removeEventListener('scroll', hide, true);
+  }, [open]);
   return (
-    <span className={cx('relative inline-flex', className)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <span className={cx('relative inline-flex', className)} onMouseEnter={show} onMouseLeave={() => setOpen(false)}>
       <button
+        ref={btn}
         type="button"
-        aria-describedby={id}
-        aria-label="Más información"
-        onFocus={() => setOpen(true)}
+        aria-describedby={open ? id : undefined}
+        aria-label="Qué significa"
+        onFocus={show}
         onBlur={() => setOpen(false)}
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((v) => !v);
+          if (open) setOpen(false);
+          else show();
         }}
-        className="text-faint transition-colors hover:text-muted"
+        className="text-faint transition-colors hover:text-electric"
       >
         <Info size={13} strokeWidth={2} />
       </button>
-      <AnimatePresence>
-        {open && (
-          <motion.span
-            id={id}
-            role="tooltip"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 2 }}
-            transition={{ duration: 0.15 }}
-            className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-60 -translate-x-1/2 rounded-lg border border-line bg-surface px-3 py-2 text-[12px] font-normal leading-snug text-muted shadow-pop"
-          >
-            {text}
-          </motion.span>
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {open && pos && (
+              <motion.span
+                id={id}
+                role="tooltip"
+                initial={{ opacity: 0, y: pos.below ? 4 : -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'fixed', left: pos.left, top: pos.top, width: 260, transform: pos.below ? undefined : 'translateY(-100%)' }}
+                className="pointer-events-none z-[80] rounded-lg border border-line bg-surface px-3 py-2 text-[12px] font-normal normal-case leading-snug tracking-normal text-muted shadow-pop"
+              >
+                {text}
+              </motion.span>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </span>
   );
 }

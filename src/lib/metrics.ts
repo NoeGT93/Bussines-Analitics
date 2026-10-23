@@ -332,21 +332,21 @@ export function normalizeChannel(name: string) {
 type SocialDerived = 'engagement' | 'cpr' | 'roas' | 'ctr' | 'cpc' | 'cpm';
 
 export const SOCIAL_DEFS: { key: SocialField | SocialDerived; label: string; unit: Unit; help: string }[] = [
-  { key: 'alcance', label: 'Alcance', unit: 'n', help: 'Personas únicas que vieron el contenido.' },
-  { key: 'impresiones', label: 'Impresiones', unit: 'n', help: 'Veces que se mostró el contenido.' },
-  { key: 'reproducciones', label: 'Reproducciones', unit: 'n', help: 'Reproducciones de video.' },
-  { key: 'interacciones', label: 'Interacciones', unit: 'n', help: 'Reacciones, comentarios, compartidos y guardados.' },
-  { key: 'engagement', label: 'Engagement rate', unit: '%', help: 'Interacciones ÷ alcance.' },
-  { key: 'nuevosSeguidores', label: 'Nuevos seguidores', unit: 'n', help: 'Seguidores ganados en el período.' },
-  { key: 'clicsEnlace', label: 'Clics', unit: 'n', help: 'Clics en el anuncio (enlace, botón de mensaje o formulario).' },
-  { key: 'ctr', label: 'CTR', unit: '%', help: 'Clics ÷ impresiones: qué porcentaje de quienes vieron el anuncio hizo clic.' },
-  { key: 'leads', label: 'Leads', unit: 'n', help: 'Leads recibidos por la red (dato del Excel).' },
-  { key: 'conversiones', label: 'Ventas cerradas', unit: 'n', help: 'Leads que se inscribieron (dato del Excel).' },
-  { key: 'inversion', label: 'Inversión publicitaria', unit: 'Q', help: 'Inversión por red (dato del Excel).' },
-  { key: 'cpm', label: 'CPM', unit: 'Q2', help: 'Costo por mil impresiones: inversión ÷ impresiones × 1,000.' },
-  { key: 'cpc', label: 'CPC', unit: 'Q2', help: 'Costo por clic: inversión ÷ clics.' },
-  { key: 'cpr', label: 'Costo por venta', unit: 'Q2', help: 'Inversión ÷ ventas cerradas (o leads si no hay ventas).' },
-  { key: 'roas', label: 'ROAS', unit: 'n', help: 'Ingresos atribuidos ÷ inversión. Requiere ambos datos.' },
+  { key: 'alcance', label: 'Alcance', unit: 'n', help: 'Cuántas personas distintas vieron el anuncio al menos una vez.' },
+  { key: 'impresiones', label: 'Impresiones', unit: 'n', help: 'Cuántas veces en total se mostró el anuncio. Una misma persona puede verlo varias veces.' },
+  { key: 'reproducciones', label: 'Reproducciones', unit: 'n', help: 'Veces que alguien reprodujo un video del anuncio.' },
+  { key: 'interacciones', label: 'Interacciones', unit: 'n', help: 'Me gusta, comentarios, compartidos y guardados que recibió el anuncio.' },
+  { key: 'engagement', label: 'Engagement', unit: '%', help: 'De cada 100 personas que vieron el anuncio, cuántas reaccionaron. Mide si el contenido conecta. Más alto es mejor.' },
+  { key: 'nuevosSeguidores', label: 'Nuevos seguidores', unit: 'n', help: 'Personas que empezaron a seguir la cuenta.' },
+  { key: 'clicsEnlace', label: 'Clics', unit: 'n', help: 'Veces que alguien tocó el anuncio para escribir, llenar el formulario o ver más.' },
+  { key: 'ctr', label: 'CTR', unit: '%', help: 'De cada 100 veces que se mostró el anuncio, cuántas lo tocaron. Mide si el anuncio llama la atención. Más alto es mejor.' },
+  { key: 'leads', label: 'Leads', unit: 'n', help: 'Personas interesadas que escribieron o dejaron sus datos para pedir información.' },
+  { key: 'conversiones', label: 'Ventas cerradas', unit: 'n', help: 'Leads que terminaron inscribiéndose al gimnasio.' },
+  { key: 'inversion', label: 'Inversión', unit: 'Q', help: 'Lo que se pagó en publicidad en esa red durante el período.' },
+  { key: 'cpm', label: 'CPM', unit: 'Q2', help: 'Cuánto cuesta que el anuncio se muestre 1,000 veces. Dice qué tan cara es la red para aparecer. Más bajo es mejor.' },
+  { key: 'cpc', label: 'CPC', unit: 'Q2', help: 'Cuánto cuesta cada vez que alguien toca el anuncio. Más bajo es mejor.' },
+  { key: 'cpr', label: 'Costo por venta', unit: 'Q2', help: 'Cuánto costó en publicidad conseguir cada inscripción (inversión ÷ ventas cerradas). Más bajo es mejor.' },
+  { key: 'roas', label: 'ROAS', unit: 'n', help: 'Cuántos quetzales se vendieron por cada quetzal de publicidad. 6× = Q 6 de venta por cada Q 1. Más alto es mejor.' },
 ];
 
 const SOCIAL_FIELDS: SocialField[] = [
