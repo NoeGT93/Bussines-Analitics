@@ -4,7 +4,8 @@ import { ExternalLink, FileSpreadsheet, Info, PlugZap, Upload } from 'lucide-rea
 import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
 import { Donut } from '../components/charts/Charts';
-import { Button, Card, CardHeader, cx, Delta, InfoTip, PageHeader, Select, Tag } from '../components/ui';
+import { Button, Card, CardHeader, cx, Delta, HoverCard, InfoTip, PageHeader, Select, Tag } from '../components/ui';
+import { explainSocial } from '../lib/explain';
 import { useCompareRange, useTrendRange } from '../lib/hooks';
 import { aggSocial, SOCIAL_DEFS, socialFor, type SocialAgg } from '../lib/metrics';
 import { compact, fmt } from '../lib/format';
@@ -127,8 +128,28 @@ export function Social() {
         {SOCIAL_DEFS.map((d) => {
           const v = total[d.key as keyof SocialAgg];
           const selectable = v !== undefined;
+          const ex = explainSocial(d.key, total, estimado);
+          const prevV = prevTotal[d.key as keyof SocialAgg];
           return (
-            <Card key={d.key} as="article" className={selectable && activeMetric?.key === d.key ? 'ring-1 ring-electric/40' : undefined}>
+            <HoverCard
+              key={d.key}
+              content={
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[13px] font-semibold text-ink">{d.label}</span>
+                    <span className={cx('rounded-full px-2 py-0.5 text-[10.5px] font-medium', ex.real ? 'bg-up/10 text-up' : 'bg-electric/10 text-electric')}>{ex.real ? 'Dato real' : estimado ? 'Calculado / estimado' : 'Calculado'}</span>
+                  </div>
+                  <p className="text-ink">{ex.que}</p>
+                  <div className="rounded-lg bg-sunken px-2.5 py-2">
+                    <div className="text-[10.5px] font-semibold uppercase tracking-wide text-faint">Cómo se calcula</div>
+                    <div className="mt-0.5 text-ink">{ex.formula}</div>
+                    {ex.calculo && <div className="tnum mt-1 font-mono text-[11.5px] text-electric">{ex.calculo}</div>}
+                  </div>
+                  <p className="text-[11.5px] text-faint">{ex.fuente}</p>
+                </div>
+              }
+            >
+            <Card as="article" className={cx('h-full transition-shadow hover:shadow-pop', selectable && activeMetric?.key === d.key && 'ring-1 ring-electric/40')}>
               <button
                 type="button"
                 disabled={!selectable}
@@ -147,7 +168,7 @@ export function Social() {
                 ) : (
                   <>
                     <div className="tnum mt-2 truncate text-[20px] font-semibold tracking-[-0.02em] text-ink">{d.key === 'roas' ? `${v.toFixed(2)}×` : fmt(v, d.unit)}</div>
-                    {cmp && (
+                    {cmp && prevV !== undefined && (
                       <div className="mt-1 flex items-center gap-1.5 text-[11px] text-faint">
                         <Delta value={socialDelta(v, prevTotal[d.key as keyof SocialAgg], d.unit === '%')} kind={d.unit === '%' ? 'pp' : 'rel'} size="xs" higherIsBetter={!['cpr', 'cpc', 'cpm', 'inversion'].includes(d.key)} />
                         <span className="truncate">{cmpLabel}</span>
@@ -157,6 +178,7 @@ export function Social() {
                 )}
               </button>
             </Card>
+            </HoverCard>
           );
         })}
       </div>

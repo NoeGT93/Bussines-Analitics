@@ -94,6 +94,59 @@ export function InfoTip({ text, className }: { text: string; className?: string 
   );
 }
 
+/* Tarjeta flotante al pasar el mouse ------------------------------------ */
+/** Muestra `content` flotando junto al elemento al pasar el mouse o al enfocarlo con el teclado */
+export function HoverCard({ content, children, className, width = 320 }: { content: ReactNode; children: ReactNode; className?: string; width?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const timer = useRef<number>();
+  const [pos, setPos] = useState<{ left: number; top: number; below: boolean } | null>(null);
+  const place = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const left = Math.min(Math.max(8, r.left + r.width / 2 - width / 2), window.innerWidth - width - 8);
+    const below = window.innerHeight - r.bottom > 230 || r.top < 230;
+    setPos({ left, top: below ? r.bottom + 8 : r.top - 8, below });
+  };
+  const open = () => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(place, 180);
+  };
+  const close = () => {
+    window.clearTimeout(timer.current);
+    setPos(null);
+  };
+  useEffect(() => {
+    if (!pos) return;
+    window.addEventListener('scroll', close, true);
+    return () => window.removeEventListener('scroll', close, true);
+  }, [pos]);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return (
+    <div ref={ref} className={className} onMouseEnter={open} onMouseLeave={close} onFocus={open} onBlur={close}>
+      {children}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <AnimatePresence>
+            {pos && (
+              <motion.div
+                role="tooltip"
+                initial={{ opacity: 0, y: pos.below ? 4 : -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                style={{ position: 'fixed', left: pos.left, top: pos.top, width, transform: pos.below ? undefined : 'translateY(-100%)' }}
+                className="pointer-events-none z-[80] rounded-xl border border-line bg-surface p-3.5 text-[12px] leading-snug text-muted shadow-pop"
+              >
+                {content}
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
 /* Número animado ----------------------------------------------------- */
 export function AnimatedNumber({ value, unit = 'n', className }: { value?: number; unit?: Unit; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
