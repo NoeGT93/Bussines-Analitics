@@ -68,7 +68,7 @@ export function KpiCard(p: KpiCardProps) {
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] font-medium text-muted">
           {p.icon && <span className="text-faint">{p.icon}</span>}
-          <span className="truncate">{p.label}</span>
+          <span className="min-w-0 leading-tight">{p.label}</span>
           <InfoTip text={p.help} />
         </span>
         {!empty && <Delta value={p.delta} kind={p.deltaKind} higherIsBetter={p.higherIsBetter} />}

@@ -133,11 +133,31 @@ export function Overview() {
 
       <CompareCard />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-        {cards.map(({ key, ...cd }) => (
-          <KpiCard key={key} {...cd} />
-        ))}
-      </div>
+      {(() => {
+        // Fila 1: el embudo de captación (leads → cierre → ventas) con su costo; fila 2: el dinero
+        const ROW1 = ['consultas', 'cierre', 'cpl', 'ventas', 'cpa'];
+        const ROW2 = ['ticket', 'ingresos', 'roi'];
+        const pick = (keys: string[]) => keys.map((k) => cards.find((x) => x.key === k)).filter((x): x is (typeof cards)[number] => !!x);
+        const rest = cards.filter((x) => !ROW1.includes(x.key) && !ROW2.includes(x.key));
+        const r1 = pick(ROW1);
+        const r2 = [...pick(ROW2), ...rest];
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-5">
+              {r1.map(({ key, ...cd }) => (
+                <KpiCard key={key} {...cd} />
+              ))}
+            </div>
+            {r2.length > 0 && (
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:mt-3 sm:grid-cols-3 sm:gap-3">
+                {r2.map(({ key, ...cd }) => (
+                  <KpiCard key={key} {...cd} />
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
         <div className="min-w-0 xl:col-span-2" data-report-chart>
