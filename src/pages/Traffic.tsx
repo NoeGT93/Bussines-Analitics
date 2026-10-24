@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
 import { Heatmap, TrendChart } from '../components/charts/Charts';
 import { KpiCard } from '../components/kpi/KpiCard';
+import { MetricInfo } from '../components/data/MetricInfo';
 import { PageHeader } from '../components/ui';
 import { NoData, SourceNote } from '../components/data/Shared';
 import { channelsFor, kpi, METRICS, rowsFor, type SeriesMetric } from '../lib/metrics';
@@ -52,10 +53,10 @@ export function Traffic() {
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5">
         <KpiCard label="Visitas web" help={METRICS.visitas.help} unit="n" value={k.visitas.value} delta={k.visitas.delta} compareLabel={prevLabel} coverage={k.visitas.coverage} spark={k.visitas.spark} sparkPeriods={k.visitas.sparkPeriods} color={c.series[0]} />
         <KpiCard label="Clics" help={METRICS.clics.help} unit="n" value={k.clics.value} delta={k.clics.delta} compareLabel={prevLabel} coverage={k.clics.coverage} spark={k.clics.spark} sparkPeriods={k.clics.sparkPeriods} color={c.series[1]} />
-        <KpiCard label="Leads" help={METRICS.consultas.help} unit="n" value={k.consultas.value} delta={k.consultas.delta} compareLabel={prevLabel} coverage={k.consultas.coverage} spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods} color={c.series[1]} />
+        <KpiCard info={<MetricInfo k="consultas" calc={k.consultas.value !== undefined ? `= ${fmt(k.consultas.value)} leads` : undefined} />} label="Leads" help={METRICS.consultas.help} unit="n" value={k.consultas.value} delta={k.consultas.delta} compareLabel={prevLabel} coverage={k.consultas.coverage} spark={k.consultas.spark} sparkPeriods={k.consultas.sparkPeriods} color={c.series[1]} />
         <KpiCard label="Visitas que consultan" help={METRICS.tasaConsulta.help} unit="%" value={k.tasaConsulta.value} delta={k.tasaConsulta.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.tasaConsulta.coverage} spark={k.tasaConsulta.spark} sparkPeriods={k.tasaConsulta.sparkPeriods} color={c.series[2]} />
         <KpiCard label="Conversión" help={METRICS.conversion.help} unit="%" value={k.conversion.value} delta={k.conversion.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.conversion.coverage} spark={k.conversion.spark} sparkPeriods={k.conversion.sparkPeriods} color={c.series[2]} />
-        <KpiCard label="Tasa de cierre" help={METRICS.cierre.help} unit="%" value={k.cierre.value} delta={k.cierre.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.cierre.coverage} spark={k.cierre.spark} sparkPeriods={k.cierre.sparkPeriods} color={c.series[2]} />
+        <KpiCard info={<MetricInfo k="cierre" calc={k.cierre.value !== undefined ? `= ${fmt(k.cierre.value, '%')} de los leads se inscribieron` : undefined} />} label="Tasa de cierre" help={METRICS.cierre.help} unit="%" value={k.cierre.value} delta={k.cierre.delta} deltaKind="pp" compareLabel={prevLabel} coverage={k.cierre.coverage} spark={k.cierre.spark} sparkPeriods={k.cierre.sparkPeriods} color={c.series[2]} />
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-5">

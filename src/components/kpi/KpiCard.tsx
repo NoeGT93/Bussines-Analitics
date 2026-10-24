@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import { AnimatedNumber, Card, cx, Delta, InfoTip } from '../ui';
+import { AnimatedNumber, Card, cx, Delta, HoverCard, InfoTip } from '../ui';
 import { Sparkline, useSparkIndex } from '../charts/Charts';
 import { fmt, pct, pp } from '../../lib/format';
 import { labelShort } from '../../lib/periods';
@@ -23,6 +23,8 @@ export interface KpiCardProps {
   coverage?: { have: number; total: number };
   onOpen?: () => void;
   pending?: string;
+  /** Contenido de la tarjeta flotante al pasar el mouse */
+  info?: ReactNode;
   higherIsBetter?: boolean;
 }
 
@@ -86,8 +88,8 @@ export function KpiCard(p: KpiCardProps) {
       <div className="mt-3 h-[30px]">{p.spark && !empty && <Sparkline key={p.sparkPeriods?.join()} data={p.spark} periods={p.sparkPeriods} color={p.color} height={30} />}</div>
     </>
   );
-  return (
-    <Card as="article" className={cx('group relative min-w-0 transition-shadow', p.onOpen && 'hover:shadow-pop')}>
+  const card = (
+    <Card as="article" className={cx('group relative h-full min-w-0 transition-shadow', (p.onOpen || p.info) ? 'hover:shadow-pop' : undefined)}>
       {p.onOpen ? (
         <div
           role="button"
@@ -105,4 +107,5 @@ export function KpiCard(p: KpiCardProps) {
       )}
     </Card>
   );
+  return p.info ? <HoverCard content={p.info}>{card}</HoverCard> : card;
 }

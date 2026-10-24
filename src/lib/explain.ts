@@ -129,7 +129,7 @@ export function explainSocial(key: string, a: SocialAgg, estimado: boolean): Exp
         que: 'Quetzales vendidos por cada quetzal de publicidad. Más alto es mejor.',
         formula: 'Venta ÷ inversión',
         calculo: a.ingresosAtribuidos !== undefined && a.inversion ? `${fmt(a.ingresosAtribuidos, 'Q')} ÷ ${fmt(a.inversion, 'Q')} = ${a.roas?.toFixed(2)}×` : undefined,
-        fuente: estimado ? 'Inversión real; la venta de cada red se estima como cerrados × ticket promedio del mes (el total coincide con la venta del Excel).' : 'Calculado con datos importados.',
+        fuente: estimado ? 'Inversión real; la venta de cada red se estima como cerrados × ticket promedio del mes (el total coincide con la venta del Excel, con diferencias de Q 1 por redondeo).' : 'Calculado con datos importados.',
         real: false,
       };
     default:

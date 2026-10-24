@@ -3,7 +3,9 @@ import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Refere
 import { AlertTriangle, BookOpen, Calculator, FileSpreadsheet, Upload } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from '../components/charts/kit';
-import { Button, Card, CardHeader, cx, InfoTip, PageHeader, Tag } from '../components/ui';
+import { Button, Card, CardHeader, cx, HoverCard, InfoTip, PageHeader, Tag } from '../components/ui';
+import { MetricInfo } from '../components/data/MetricInfo';
+import { glossText } from '../lib/glossary';
 import { adMetrics, metaBranches, roiByChannel, roiByMonth, roiTotal, ROI_GLOSSARY } from '../lib/roi';
 import { META_LABEL } from '../lib/metrics';
 import { BranchLeaf, BranchName } from '../components/data/Branch';
@@ -52,15 +54,16 @@ function RoiValue({ v }: { v?: number }) {
   return <span className="font-semibold text-ink">{fmt(v, '%2')}</span>;
 }
 
-function Stat({ label, value, help, tone }: { label: string; value: string; help: string; tone?: 'up' | 'down' }) {
-  return (
-    <Card className="p-4">
+function Stat({ label, value, help, tone, k, calc, fuente }: { label: string; value: string; help: string; tone?: 'up' | 'down'; k?: string; calc?: string; fuente?: string }) {
+  const card = (
+    <Card className="h-full p-4 transition-shadow hover:shadow-pop">
       <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted">
-        {label} <InfoTip text={help} />
+        {label} <InfoTip text={k ? glossText(k) || help : help} />
       </div>
       <div className={cx('tnum mt-2 whitespace-nowrap text-[19px] font-semibold tracking-[-0.02em] sm:text-[21px]', tone === 'up' ? 'text-up' : tone === 'down' ? 'text-down' : 'text-ink')}>{value}</div>
     </Card>
   );
+  return k ? <HoverCard content={<MetricInfo k={k} label={label} calc={calc} fuente={fuente} />}>{card}</HoverCard> : card;
 }
 
 export function Roi() {
@@ -152,19 +155,24 @@ export function Roi() {
       )}
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
-        <Stat label="Inversión" value={fmt(total.inversion, 'Q')} help="Suma de la inversión registrada para el período." />
-        <Stat label="Ventas" value={fmt(total.ingresos, 'Q')} help="Ventas en quetzales del período." />
+        <Stat k="inversion" calc={`= ${fmt(total.inversion, 'Q')}`} label="Inversión" value={fmt(total.inversion, 'Q')} help="Suma de la inversión registrada para el período." />
+        <Stat k="ingresos" calc={`= ${fmt(total.ingresos, 'Q')}`} label="Ventas" value={fmt(total.ingresos, 'Q')} help="Ventas en quetzales del período." />
         <Stat
+          k="beneficio"
+          calc={total.ingresos !== undefined && total.inversion !== undefined ? `${fmt(total.ingresos, 'Q')} − ${fmt(total.inversion, 'Q')} = ${fmt(total.ingresos - total.inversion, 'Q')}` : undefined}
           label="Beneficio neto"
           value={fmt(total.beneficio, 'Q')}
           tone={total.beneficio === undefined ? undefined : total.beneficio >= 0 ? 'up' : 'down'}
           help={margen !== undefined ? `Ventas × ${fmt(margen, '%')} de margen − inversión.` : 'Ventas − inversión, como en el reporte. No descuenta renta, planilla ni otros gastos del gimnasio.'}
         />
-        <Stat label="ROI" value={total.roi === undefined ? '—' : fmt(total.roi, '%2')} help="Como en el Excel: inversión ÷ total de venta × 100. Qué parte de la venta se fue en publicidad; más bajo es mejor (9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad)." />
-        <Stat label="ROAS" value={total.roas === undefined ? '—' : `${total.roas.toFixed(2)}×`} help="Ventas ÷ inversión: quetzales vendidos por cada quetzal de publicidad." />
-        <Stat label="CPL" value={fmt(total.costoConsulta, 'Q2')} help="Costo por lead: inversión ÷ leads recibidos." />
-        <Stat label="CPA" value={fmt(total.cpa, 'Q2')} help="Costo por venta cerrada: inversión ÷ ventas cerradas." />
+        <Stat k="roi" calc={total.inversion !== undefined && total.ingresos ? `${fmt(total.inversion, 'Q')} ÷ ${fmt(total.ingresos, 'Q')} × 100 = ${fmt(total.roi, '%2')}` : undefined} label="ROI" value={total.roi === undefined ? '—' : fmt(total.roi, '%2')} help="Como en el Excel: inversión ÷ total de venta × 100. Qué parte de la venta se fue en publicidad; más bajo es mejor (9.95 % = de cada Q 100 vendidos, Q 9.95 fueron publicidad)." />
+        <Stat k="roas" calc={total.inversion && total.ingresos !== undefined ? `${fmt(total.ingresos, 'Q')} ÷ ${fmt(total.inversion, 'Q')} = ${total.roas?.toFixed(2)}×` : undefined} label="ROAS" value={total.roas === undefined ? '—' : `${total.roas.toFixed(2)}×`} help="Ventas ÷ inversión: quetzales vendidos por cada quetzal de publicidad." />
+        <Stat k="cpl" calc={total.inversion !== undefined && total.leads ? `${fmt(total.inversion, 'Q')} ÷ ${fmt(total.leads)} = ${fmt(total.costoConsulta, 'Q2')}` : undefined} label="CPL" value={fmt(total.costoConsulta, 'Q2')} help="Costo por lead: inversión ÷ leads recibidos." />
+        <Stat k="cpa" calc={total.inversion !== undefined && total.ventas ? `${fmt(total.inversion, 'Q')} ÷ ${fmt(total.ventas)} = ${fmt(total.cpa, 'Q2')}` : undefined} label="CPA" value={fmt(total.cpa, 'Q2')} help="Costo por venta cerrada: inversión ÷ ventas cerradas." />
         <Stat
+          k="ctr"
+          calc={ads.clics !== undefined && ads.impresiones ? `${fmt(ads.clics)} ÷ ${fmt(ads.impresiones)} × 100 = ${fmt(ads.ctr, '%')}` : undefined}
+          fuente="Clics e impresiones estimados a partir de la inversión y los leads; se reemplazan al importar los datos de Meta Ads o TikTok Ads."
           label="CTR (estimado)"
           value={ads.ctr === undefined ? 'Pendiente' : fmt(ads.ctr, '%')}
           help="Clics ÷ impresiones. Estimado a partir de la inversión y los leads de cada red; se reemplaza al importar los datos del administrador de anuncios."
@@ -208,12 +216,12 @@ export function Roi() {
                   <tr className="border-b border-line text-left text-faint">
                     <th className="px-5 py-2 font-medium">Red</th>
                     <th className="w-32 px-2 py-2 text-right font-medium">Inversión</th>
-                    <th className="px-3 py-2 text-right font-medium">Leads</th>
-                    <th className="px-3 py-2 text-right font-medium">Cerradas</th>
-                    <th className="px-3 py-2 text-right font-medium">Cierre</th>
-                    <th className="px-3 py-2 text-right font-medium">CPL</th>
-                    <th className="px-3 py-2 text-right font-medium">CPA</th>
-                    {hasChIngresos && <th className="px-5 py-2 text-right font-medium">ROI</th>}
+                    <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Leads<InfoTip text={glossText('consultas')} /></span></th>
+                    <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Cerradas<InfoTip text={glossText('ventas')} /></span></th>
+                    <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Cierre<InfoTip text={glossText('cierre')} /></span></th>
+                    <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">CPL<InfoTip text={glossText('cpl')} /></span></th>
+                    <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">CPA<InfoTip text={glossText('cpa')} /></span></th>
+                    {hasChIngresos && <th className="px-5 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">ROI<InfoTip text={glossText('roi')} /></span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -393,11 +401,11 @@ export function Roi() {
                 <th className="px-5 py-2 font-medium">Mes</th>
                 <th className="w-32 px-2 py-2 text-right font-medium">Inversión</th>
                 <th className="px-3 py-2 text-right font-medium">Ventas</th>
-                <th className="px-3 py-2 text-right font-medium">Beneficio neto</th>
-                <th className="px-3 py-2 text-right font-medium">ROI</th>
-                <th className="px-3 py-2 text-right font-medium">ROAS</th>
-                <th className="px-3 py-2 text-right font-medium">CPL</th>
-                <th className="px-5 py-2 text-right font-medium">CPA</th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Beneficio neto<InfoTip text={glossText('beneficio')} /></span></th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">ROI<InfoTip text={glossText('roi')} /></span></th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">ROAS<InfoTip text={glossText('roas')} /></span></th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">CPL<InfoTip text={glossText('cpl')} /></span></th>
+                <th className="px-5 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">CPA<InfoTip text={glossText('cpa')} /></span></th>
               </tr>
             </thead>
             <tbody>

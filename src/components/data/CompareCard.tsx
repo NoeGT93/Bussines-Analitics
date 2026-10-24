@@ -10,7 +10,8 @@ import { companyIdsFor } from '../../lib/metrics';
 import { fmt, type Unit } from '../../lib/format';
 import { labelRange, monthsBetween } from '../../lib/periods';
 import type { CompanyScope, Dataset, DateRange } from '../../types';
-import { Card, CardHeader, Delta, Segmented, Tag, cx } from '../ui';
+import { Card, CardHeader, Delta, InfoTip, Segmented, Tag, cx } from '../ui';
+import { glossText } from '../../lib/glossary';
 
 interface Line {
   key: string;
@@ -133,7 +134,11 @@ export function CompareCard() {
               {data.lines.map((l) => (
                 <tr key={l.key} className="border-b border-line/60 last:border-0">
                   <td className="px-5 py-2 text-ink">
-                    {l.label} {l.estimado && <span className="ml-1 text-[11px] text-faint">estimado</span>}
+                    <span className="inline-flex items-center gap-1.5">
+                      {l.label}
+                      {glossText(l.key) && <InfoTip text={glossText(l.key)} />}
+                    </span>
+                    {l.estimado && <span className="ml-1 text-[11px] text-faint">estimado</span>}
                   </td>
                   <td className="tnum px-3 py-2 text-right font-semibold text-ink">{fmt(l.a, l.unit)}</td>
                   <td className="tnum px-3 py-2 text-right text-muted">{fmt(l.b, l.unit)}</td>
@@ -151,11 +156,11 @@ export function CompareCard() {
             <thead>
               <tr className="border-b border-line text-left text-faint">
                 <th className="px-5 py-2 font-medium">Red</th>
-                <th className="px-3 py-2 text-right font-medium">Leads</th>
-                <th className="px-3 py-2 text-right font-medium">Cerrados</th>
-                <th className="px-3 py-2 text-right font-medium">Cierre</th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Leads<InfoTip text={glossText('consultas')} /></span></th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Cerrados<InfoTip text={glossText('ventas')} /></span></th>
+                <th className="px-3 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Cierre<InfoTip text={glossText('cierre')} /></span></th>
                 <th className="px-3 py-2 text-right font-medium">Inversión</th>
-                <th className="px-5 py-2 text-right font-medium">Costo por venta</th>
+                <th className="px-5 py-2 text-right font-medium"><span className="inline-flex items-center gap-1">Costo por venta<InfoTip text={glossText('cpa')} /></span></th>
               </tr>
             </thead>
             <tbody>

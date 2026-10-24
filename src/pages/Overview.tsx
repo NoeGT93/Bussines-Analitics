@@ -3,6 +3,8 @@ import { BadgePercent, Banknote, Coins, Eye, MessageSquare, MousePointerClick, R
 import { useStore } from '../store/useStore';
 import { KpiCard, type KpiCardProps } from '../components/kpi/KpiCard';
 import { AccumulatedCard } from '../components/data/Accumulated';
+import { MetricInfo } from '../components/data/MetricInfo';
+import { fmt } from '../lib/format';
 import { roiByMonth, roiTotal } from '../lib/roi';
 import type { Unit } from '../lib/format';
 import type { PageId } from '../store/useStore';
@@ -15,6 +17,8 @@ import { generateInsights } from '../lib/insights';
 import { useCompareRange, useScopeRows, useTrendRange } from '../lib/hooks';
 import { labelRange } from '../lib/periods';
 import { CompareCard } from '../components/data/CompareCard';
+
+const GLOSSARY_KEYS = new Set(['consultas', 'cierre', 'cpl', 'ventas', 'cpa', 'ticket', 'ingresos', 'roi']);
 
 export function Overview() {
   const { ds, scope, range, setPage, openDetail, setRange } = useStore();
@@ -140,17 +144,33 @@ export function Overview() {
         const rest = cards.filter((x) => !ROW1.includes(x.key) && !ROW2.includes(x.key));
         const r1 = pick(ROW1);
         const r2 = [...pick(ROW2), ...rest];
+        // Tarjeta flotante con la cuenta del período
+        const t = roi.total;
+        const leads = totalOf(rows, 'consultas').value;
+        const ven = totalOf(rows, 'ventas').value;
+        const ing = totalOf(rows, 'ingresos').value;
+        const calc: Record<string, string | undefined> = {
+          consultas: leads !== undefined ? `= ${fmt(leads)} leads` : undefined,
+          cierre: leads && ven !== undefined ? `${fmt(ven)} ÷ ${fmt(leads)} × 100 = ${fmt(ven / leads, '%')}` : undefined,
+          cpl: t.inversion !== undefined && leads ? `${fmt(t.inversion, 'Q')} ÷ ${fmt(leads)} = ${fmt(t.costoConsulta, 'Q2')}` : undefined,
+          ventas: ven !== undefined ? `= ${fmt(ven)} inscripciones` : undefined,
+          cpa: t.inversion !== undefined && ven ? `${fmt(t.inversion, 'Q')} ÷ ${fmt(ven)} = ${fmt(t.cpa, 'Q2')}` : undefined,
+          ticket: ing !== undefined && ven ? `${fmt(ing, 'Q')} ÷ ${fmt(ven)} = ${fmt(ing / ven, 'Q2')}` : undefined,
+          ingresos: ing !== undefined ? `= ${fmt(ing, 'Q')}` : undefined,
+          roi: t.inversion !== undefined && ing ? `${fmt(t.inversion, 'Q')} ÷ ${fmt(ing, 'Q')} × 100 = ${fmt(t.roi, '%2')}` : undefined,
+        };
+        const info = (key: string) => <MetricInfo k={key} calc={calc[key]} />;
         return (
           <>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-5">
               {r1.map(({ key, ...cd }) => (
-                <KpiCard key={key} {...cd} />
+                <KpiCard key={key} {...cd} info={info(key)} />
               ))}
             </div>
             {r2.length > 0 && (
               <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:mt-3 sm:grid-cols-3 sm:gap-3">
                 {r2.map(({ key, ...cd }) => (
-                  <KpiCard key={key} {...cd} />
+                  <KpiCard key={key} {...cd} info={GLOSSARY_KEYS.has(key) ? info(key) : undefined} />
                 ))}
               </div>
             )}

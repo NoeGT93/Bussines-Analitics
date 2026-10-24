@@ -8,7 +8,8 @@ import { aggSocial, socialFor } from '../../lib/metrics';
 import { compact, fmt } from '../../lib/format';
 import { labelLong, labelRange, labelShort, monthsBetween, MONTHS_ES } from '../../lib/periods';
 import { axisProps, ChartCard, ChartTip, useChartColors } from '../charts/kit';
-import { Card, cx, Delta, InfoTip } from '../ui';
+import { Card, cx, Delta, HoverCard, InfoTip } from '../ui';
+import { MetricInfo } from './MetricInfo';
 
 /**
  * Página Hallazgos: 1 · KPI clave, 2 · Comparaciones, 3 · Gráficos, 4 · Hallazgos (lista que recibe como hijos)
@@ -84,6 +85,8 @@ export function ExecutiveBrief({ children }: { children?: ReactNode }) {
       <SectionTitle id="sec-kpi" n={1} title="KPI clave" note={`Tres números para entender el ritmo del negocio en ${labelRange(range)} (distintos a los del Resumen ejecutivo)${prev ? ` y su cambio frente a ${labelRange(cmp!)}` : ''}.`} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Kpi
+          formula="Leads del período ÷ días del período"
+          calc={leadsDia !== undefined ? `${fmt(t.leads)} ÷ ${dias(range)} días = ${Math.round(leadsDia)} al día` : undefined}
           label="Interesados por día"
           value={leadsDia === undefined ? '—' : `${Math.round(leadsDia)} al día`}
           delta={rel(leadsDia, leadsDiaPrev)}
@@ -91,6 +94,8 @@ export function ExecutiveBrief({ children }: { children?: ReactNode }) {
           explain={`En promedio llegan ${Math.round(leadsDia ?? 0)} personas cada día pidiendo información (${fmt(t.leads)} leads en ${dias(range)} días). Es el ritmo que el equipo de ventas debe atender.`}
         />
         <Kpi
+          formula="Leads ÷ ventas cerradas"
+          calc={porInscripcion !== undefined ? `${fmt(t.leads)} ÷ ${fmt(t.ventas)} = ${dec1(porInscripcion)}` : undefined}
           label="Interesados por cada inscripción"
           value={porInscripcion === undefined ? '—' : `1 de cada ${dec1(porInscripcion)}`}
           delta={rel(porInscripcion, porInscripcionPrev)}
@@ -99,6 +104,8 @@ export function ExecutiveBrief({ children }: { children?: ReactNode }) {
           explain={`Hay que atender a unas ${Math.round(porInscripcion ?? 0)} personas interesadas para lograr una inscripción. Mientras menos, mejor: significa que el seguimiento convence más rápido.`}
         />
         <Kpi
+          formula="Ventas cerradas ÷ inversión × 1,000"
+          calc={porMil !== undefined ? `${fmt(t.ventas)} ÷ ${fmt(t.inversion, 'Q')} × 1,000 = ${dec1(porMil)}` : undefined}
           label="Inscripciones por cada Q 1,000 en publicidad"
           value={porMil === undefined ? '—' : `${dec1(porMil)} inscripciones`}
           delta={rel(porMil, porMilPrev)}
@@ -264,9 +271,9 @@ function SectionTitle({ id, n, title, note }: { id: string; n: number; title: st
   );
 }
 
-function Kpi({ label, value, explain, delta, deltaKind = 'rel', higherIsBetter = true, deltaLabel }: { label: string; value: string; explain: string; delta?: number; deltaKind?: 'rel' | 'pp'; higherIsBetter?: boolean; deltaLabel?: string }) {
-  return (
-    <Card className="p-5">
+function Kpi({ label, value, explain, delta, deltaKind = 'rel', higherIsBetter = true, deltaLabel, formula, calc }: { label: string; value: string; explain: string; delta?: number; deltaKind?: 'rel' | 'pp'; higherIsBetter?: boolean; deltaLabel?: string; formula?: string; calc?: string }) {
+  const card = (
+    <Card className="h-full p-5 transition-shadow hover:shadow-pop">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[12.5px] font-medium text-muted">{label}</span>
         {delta !== undefined && <Delta value={delta} kind={deltaKind} higherIsBetter={higherIsBetter} />}
@@ -276,6 +283,7 @@ function Kpi({ label, value, explain, delta, deltaKind = 'rel', higherIsBetter =
       <p className="mt-2 text-[12.5px] leading-relaxed text-muted">{explain}</p>
     </Card>
   );
+  return formula ? <HoverCard content={<MetricInfo k={label} label={label} que={explain} formula={formula} calc={calc} real={false} />}>{card}</HoverCard> : card;
 }
 
 function CompareTitle({ title, help }: { title: string; help: string }): ReactNode {

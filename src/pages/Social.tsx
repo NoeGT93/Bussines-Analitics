@@ -6,6 +6,8 @@ import { axisProps, ChartCard, ChartTip, useAnimDuration, useChartColors } from 
 import { Donut } from '../components/charts/Charts';
 import { Button, Card, CardHeader, cx, Delta, HoverCard, InfoTip, PageHeader, Select, Tag } from '../components/ui';
 import { explainSocial } from '../lib/explain';
+import { MetricInfo } from '../components/data/MetricInfo';
+import { glossText } from '../lib/glossary';
 import { useCompareRange, useTrendRange } from '../lib/hooks';
 import { aggSocial, SOCIAL_DEFS, socialFor, type SocialAgg } from '../lib/metrics';
 import { compact, fmt } from '../lib/format';
@@ -134,19 +136,16 @@ export function Social() {
             <HoverCard
               key={d.key}
               content={
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[13px] font-semibold text-ink">{d.label}</span>
-                    <span className={cx('rounded-full px-2 py-0.5 text-[10.5px] font-medium', ex.real ? 'bg-up/10 text-up' : 'bg-electric/10 text-electric')}>{ex.real ? 'Dato real' : estimado ? 'Calculado / estimado' : 'Calculado'}</span>
-                  </div>
-                  <p className="text-ink">{ex.que}</p>
-                  <div className="rounded-lg bg-sunken px-2.5 py-2">
-                    <div className="text-[10.5px] font-semibold uppercase tracking-wide text-faint">Cómo se calcula</div>
-                    <div className="mt-0.5 text-ink">{ex.formula}</div>
-                    {ex.calculo && <div className="tnum mt-1 font-mono text-[11.5px] text-electric">{ex.calculo}</div>}
-                  </div>
-                  <p className="text-[11.5px] text-faint">{ex.fuente}</p>
-                </div>
+                <MetricInfo
+                  k={d.key}
+                  label={d.label}
+                  que={ex.que}
+                  formula={ex.formula}
+                  calc={ex.calculo}
+                  fuente={ex.fuente}
+                  real={ex.real}
+                  tag={ex.real ? 'Dato real' : estimado ? 'Calculado / estimado' : 'Calculado'}
+                />
               }
             >
             <Card as="article" className={cx('h-full transition-shadow hover:shadow-pop', selectable && activeMetric?.key === d.key && 'ring-1 ring-electric/40')}>
@@ -310,7 +309,7 @@ export function Social() {
                               <td className={cx('px-5 py-2.5', g.main ? 'font-medium text-ink' : 'text-muted')}>
                                 <span className="inline-flex items-center gap-1.5">
                                   {d.label}
-                                  <InfoTip text={`${d.help}${isEst ? ' Estimado a partir de la inversión y los leads del Excel.' : REAL_KEYS.has(d.key) && estimado ? ' Dato real del Excel.' : ''}`} />
+                                  <InfoTip text={`${glossText(d.key) || d.help}${isEst ? ' Estimado a partir de la inversión y los leads del Excel.' : REAL_KEYS.has(d.key) && estimado ? ' Dato real del Excel.' : ''}`} />
                                 </span>
                               </td>
                               {platforms.length > 1 && (
