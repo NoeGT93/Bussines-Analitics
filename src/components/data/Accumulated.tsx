@@ -4,7 +4,10 @@ import { useStore } from '../../store/useStore';
 import { roiByMonth } from '../../lib/roi';
 import { fmt } from '../../lib/format';
 import { labelLong } from '../../lib/periods';
-import { AnimatedNumber, Card, cx } from '../ui';
+import { AnimatedNumber, Card, cx, HoverCard } from '../ui';
+import { MetricInfo } from './MetricInfo';
+import type { Unit } from '../../lib/format';
+import type { ReactNode } from 'react';
 
 /**
  * Total invertido y total vendido acumulados del período seleccionado,
@@ -35,6 +38,8 @@ export function AccumulatedCard() {
   const periodo = first === last ? labelLong(first) : `${labelLong(first)} a ${labelLong(last)}`;
   const resultado = data.venta - data.inversion;
   const porQuetzal = data.inversion > 0 ? data.venta / data.inversion : undefined;
+  // ROI como en el Excel: inversión ÷ venta
+  const roi = data.venta > 0 ? data.inversion / data.venta : undefined;
   const faltaInversion = data.conInversion < data.rows.length;
 
   return (
@@ -49,18 +54,33 @@ export function AccumulatedCard() {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-px border-t border-white/15 bg-white/15 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-px border-t border-white/15 bg-white/15 sm:grid-cols-2 lg:grid-cols-5">
         <Figure
+          info={<MetricInfo k="inversion" label="Total invertido en publicidad" calc={`= ${fmt(data.inversion, 'Q')}`} />}
           label="Total invertido en publicidad"
           value={data.inversion}
           note={faltaInversion ? `Registrada en ${data.conInversion} de ${data.rows.length} meses` : data.rows.length === 1 ? 'Inversión de las 4 redes en el mes' : `Suma de la inversión de ${data.conInversion} meses`}
           warn={faltaInversion}
         />
-        <Figure label="Total vendido" value={data.venta} note={data.rows.length === 1 ? 'Venta registrada del mes' : `Suma de las ventas de ${data.conVenta} meses`} />
+        <Figure info={<MetricInfo k="ingresos" label="Total vendido" calc={`= ${fmt(data.venta, 'Q')}`} />} label="Total vendido" value={data.venta} note={data.rows.length === 1 ? 'Venta registrada del mes' : `Suma de las ventas de ${data.conVenta} meses`} />
         <Figure
+          info={<MetricInfo k="beneficio" calc={`${fmt(data.venta, 'Q')} − ${fmt(data.inversion, 'Q')} = ${fmt(resultado, 'Q')}`} />}
           label="Venta menos inversión"
           value={resultado}
           tone={resultado >= 0 ? 'up' : 'down'}
+          note="Lo que queda para cubrir renta, planilla y demás gastos"
+        />
+        <Figure
+          info={<MetricInfo k="roi" calc={data.venta > 0 ? `${fmt(data.inversion, 'Q')} ÷ ${fmt(data.venta, 'Q')} × 100 = ${fmt(roi, '%2')}` : undefined} />}
+          label="ROI"
+          value={roi}
+          unit="%2"
+          note={roi !== undefined ? `De cada Q 100 vendidos, Q ${(roi * 100).toFixed(2)} fueron publicidad` : 'Sin venta registrada'}
+        />
+        <Figure
+          info={<MetricInfo k="roas" calc={porQuetzal !== undefined ? `${fmt(data.venta, 'Q')} ÷ ${fmt(data.inversion, 'Q')} = ${porQuetzal.toFixed(2)}×` : undefined} />}
+          label="ROAS"
+          text={porQuetzal !== undefined ? `${porQuetzal.toFixed(2)}×` : '—'}
           note={porQuetzal !== undefined ? `Por cada Q 1 invertido se vendieron Q ${porQuetzal.toFixed(2)}` : 'Sin inversión registrada'}
         />
       </div>
@@ -117,14 +137,15 @@ export function AccumulatedCard() {
   );
 }
 
-function Figure({ label, value, note, tone, warn }: { label: string; value: number; note: string; tone?: 'up' | 'down'; warn?: boolean }) {
-  return (
-    <div className="bg-[#00071c]/40 px-5 py-4 backdrop-blur-sm">
+function Figure({ label, value, text, unit = 'Q', note, tone, warn, info }: { label: string; value?: number; text?: string; unit?: Unit; note: string; tone?: 'up' | 'down'; warn?: boolean; info?: ReactNode }) {
+  const body = (
+    <div className="h-full bg-[#00071c]/40 px-5 py-4 backdrop-blur-sm transition-colors hover:bg-[#00071c]/25">
       <div className="text-[12.5px] font-medium text-white/75">{label}</div>
-      <div className={cx('tnum mt-1.5 whitespace-nowrap text-[24px] font-semibold tracking-[-0.02em] sm:text-[28px]', tone === 'up' ? 'text-aqua' : tone === 'down' ? 'text-[#ff8a8f]' : 'text-white')}>
-        <AnimatedNumber value={value} unit="Q" />
+      <div className={cx('tnum mt-1.5 whitespace-nowrap text-[24px] font-semibold tracking-[-0.02em] sm:text-[26px]', tone === 'up' ? 'text-aqua' : tone === 'down' ? 'text-[#ff8a8f]' : 'text-white')}>
+        {text ?? <AnimatedNumber value={value} unit={unit} />}
       </div>
       <div className={cx('mt-1 text-[12px]', warn ? 'text-[#ffd07a]' : 'text-white/60')}>{note}</div>
     </div>
   );
+  return info ? <HoverCard content={info}>{body}</HoverCard> : body;
 }
