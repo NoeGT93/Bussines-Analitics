@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { BadgePercent, Banknote, Coins, Eye, MessageSquare, MousePointerClick, Receipt, ShoppingBag, TrendingUp, UserPlus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { KpiCard, type KpiCardProps } from '../components/kpi/KpiCard';
-import { LeadSnapshotCard } from '../components/data/LeadSnapshot';
 import { AccumulatedCard } from '../components/data/Accumulated';
 import { roiByMonth, roiTotal } from '../lib/roi';
 import type { Unit } from '../lib/format';
@@ -10,7 +9,7 @@ import type { PageId } from '../store/useStore';
 import { ChartCard, useChartColors } from '../components/charts/kit';
 import { Donut, Funnel, TrendChart } from '../components/charts/Charts';
 import { Card, CardHeader, PageHeader, Segmented } from '../components/ui';
-import { InsightItem, MonthTable, NoData, SourceNote } from '../components/data/Shared';
+import { InsightItem, NoData, SourceNote } from '../components/data/Shared';
 import { channelsFor, kpi, METRICS, rowsFor, totalOf, type SeriesMetric } from '../lib/metrics';
 import { generateInsights } from '../lib/insights';
 import { useCompareRange, useScopeRows, useTrendRange } from '../lib/hooks';
@@ -218,17 +217,6 @@ export function Overview() {
           </div>
         </ChartCard>
       </div>
-
-      <div className="mt-3">
-        <LeadSnapshotCard />
-      </div>
-
-      <Card className="mt-3">
-        <CardHeader title="Detalle mensual" subtitle="Haz clic en un mes para abrir su detalle." />
-        <div className="mt-2">
-          <MonthTable rows={rows} metrics={['ingresos', 'ventas', 'ticket', 'consultas', 'cierre', 'visitas', 'conversion', 'clientesNuevos']} />
-        </div>
-      </Card>
     </>
   );
 }
